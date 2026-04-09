@@ -70,6 +70,9 @@
                     </div>
                 </div>
                 <div class="group-actions">
+                    <button class="btn btn-sm btn-primary" onclick="openDeployModal({{ $selectedGroup->id }}, '{{ $selectedGroup->name }}')">
+                        ⊕ Deploy new agent
+                    </button>
                     <button class="btn btn-sm btn-secondary" onclick="editGroup({{ $selectedGroup->id }}, '{{ $selectedGroup->name }}')">
                         ✏️ Edit
                     </button>
@@ -271,6 +274,150 @@
                 <button type="submit" class="btn btn-primary">Move Asset</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Deploy Agent Modal -->
+<div id="deployAgentModal" class="modal" style="display: none;">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h2>🚀 Deploy new agent</h2>
+            <button class="modal-close" onclick="closeDeployModal()">&times;</button>
+        </div>
+        <div class="modal-body deploy-modal-body">
+            <!-- Step 1: OS Selection -->
+            <div class="deploy-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Choose the operating system</h3>
+                    <div class="os-options">
+                        <label class="os-option">
+                            <input type="radio" name="os_type" value="linux" checked onchange="updateScript()">
+                            <span class="os-card">
+                                <span class="os-icon">🐧</span>
+                                <span class="os-name">Linux</span>
+                            </span>
+                        </label>
+                        <label class="os-option">
+                            <input type="radio" name="os_type" value="windows" onchange="updateScript()">
+                            <span class="os-card">
+                                <span class="os-icon">🪟</span>
+                                <span class="os-name">Windows</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Version -->
+            <div class="deploy-step" id="linuxVersionStep">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Choose the version</h3>
+                    <div class="version-options">
+                        <label class="version-option">
+                            <input type="radio" name="linux_version" value="ubuntu14" onchange="updateScript()">
+                            <span class="version-btn">Ubuntu 14</span>
+                        </label>
+                        <label class="version-option">
+                            <input type="radio" name="linux_version" value="ubuntu15" checked onchange="updateScript()">
+                            <span class="version-btn active">Ubuntu 15+</span>
+                        </label>
+                        <label class="version-option">
+                            <input type="radio" name="linux_version" value="centos" onchange="updateScript()">
+                            <span class="version-btn">CentOS/RHEL</span>
+                        </label>
+                        <label class="version-option">
+                            <input type="radio" name="linux_version" value="debian" onchange="updateScript()">
+                            <span class="version-btn">Debian</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Architecture -->
+            <div class="deploy-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Choose the architecture</h3>
+                    <div class="arch-options">
+                        <label class="arch-option">
+                            <input type="radio" name="architecture" value="i386" onchange="updateScript()">
+                            <span class="arch-btn">i386</span>
+                        </label>
+                        <label class="arch-option">
+                            <input type="radio" name="architecture" value="x86_64" checked onchange="updateScript()">
+                            <span class="arch-btn active">x86_64</span>
+                        </label>
+                        <label class="arch-option">
+                            <input type="radio" name="architecture" value="armhf" onchange="updateScript()">
+                            <span class="arch-btn">armhf</span>
+                        </label>
+                        <label class="arch-option">
+                            <input type="radio" name="architecture" value="aarch64" onchange="updateScript()">
+                            <span class="arch-btn">aarch64</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Server Address -->
+            <div class="deploy-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>XDR Server address</h3>
+                    <p class="step-desc">This is the address the agent uses to communicate with the XDR server. It can be an IP address or a fully qualified domain name (FQDN).</p>
+                    <input type="text" id="serverAddress" class="form-input" placeholder="e.g., 192.168.1.100 or xdr.example.com" onkeyup="updateScript()">
+                </div>
+            </div>
+
+            <!-- Step 5: Optional Settings -->
+            <div class="deploy-step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <h3>Optional settings</h3>
+                    <p class="step-desc">The deployment sets the endpoint hostname as the agent name by default. Optionally, you can set the agent name below.</p>
+                    
+                    <label class="field-label">Assign an agent name</label>
+                    <input type="text" id="agentName" class="form-input" placeholder="Agent name (optional)" onkeyup="updateScript()">
+                    <div class="info-box warning">
+                        <span class="info-icon">ℹ️</span>
+                        The agent name must be unique. It can't be changed once the agent has been enrolled.
+                    </div>
+
+                    <label class="field-label" style="margin-top: 16px;">Select group</label>
+                    <div class="group-select-display">
+                        <span class="selected-group-tag" id="selectedGroupTag">Loading...</span>
+                    </div>
+                    <input type="hidden" id="selectedGroupId" value="">
+                    <input type="hidden" id="selectedGroupName" value="">
+                </div>
+            </div>
+
+            <!-- Step 6: Install Command -->
+            <div class="deploy-step">
+                <div class="step-number">6</div>
+                <div class="step-content">
+                    <h3>Install and enroll the agent</h3>
+                    <p class="step-desc">You can use this command to install and enroll the Athena XDR agent in one or more hosts.</p>
+                    
+                    <div class="info-box info">
+                        <span class="info-icon">ℹ️</span>
+                        If the installer finds another agent in the system, it will upgrade it preserving the configuration.
+                    </div>
+
+                    <div class="script-block">
+                        <pre id="installScript">Please enter the server address above to generate the installation script.</pre>
+                        <button class="copy-script-btn" onclick="copyScript()" id="copyScriptBtn" disabled>
+                            <span class="copy-icon">📋</span> Copy
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeployModal()">Close</button>
+        </div>
     </div>
 </div>
 
@@ -765,6 +912,246 @@
     outline: none;
     border-color: #00d4ff;
 }
+
+/* Deploy Agent Modal Styles */
+.modal-large {
+    max-width: 700px;
+}
+
+.deploy-modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 0 !important;
+}
+
+.deploy-step {
+    display: flex;
+    gap: 16px;
+    padding: 20px;
+    border-bottom: 1px solid #2d3748;
+}
+
+.deploy-step:last-child {
+    border-bottom: none;
+}
+
+.step-number {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #0066cc 0%, #00d4ff 100%);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-content h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    color: #fff;
+}
+
+.step-desc {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+.os-options {
+    display: flex;
+    gap: 12px;
+}
+
+.os-option input {
+    display: none;
+}
+
+.os-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 24px;
+    background: #0f1419;
+    border: 2px solid #2d3748;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.os-option input:checked + .os-card {
+    border-color: #00d4ff;
+    background: rgba(0, 212, 255, 0.1);
+}
+
+.os-icon {
+    font-size: 2rem;
+    margin-bottom: 8px;
+}
+
+.os-name {
+    font-weight: 500;
+    color: #e2e8f0;
+}
+
+.version-options,
+.arch-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.version-option input,
+.arch-option input {
+    display: none;
+}
+
+.version-btn,
+.arch-btn {
+    padding: 8px 16px;
+    background: #0f1419;
+    border: 1px solid #2d3748;
+    border-radius: 6px;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+}
+
+.version-option input:checked + .version-btn,
+.arch-option input:checked + .arch-btn {
+    background: rgba(0, 212, 255, 0.2);
+    border-color: #00d4ff;
+    color: #00d4ff;
+}
+
+.field-label {
+    display: block;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-bottom: 8px;
+}
+
+.info-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    margin-top: 12px;
+}
+
+.info-box.warning {
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    color: #eab308;
+}
+
+.info-box.info {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #3b82f6;
+}
+
+.info-icon {
+    flex-shrink: 0;
+}
+
+.group-select-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #0f1419;
+    border: 1px solid #2d3748;
+    border-radius: 6px;
+}
+
+.selected-group-tag {
+    background: rgba(0, 212, 255, 0.2);
+    color: #00d4ff;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.selected-group-tag::before {
+    content: '✕';
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+
+.script-block {
+    position: relative;
+    background: #0a0e14;
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    margin-top: 12px;
+    overflow: hidden;
+}
+
+.script-block pre {
+    padding: 16px;
+    padding-right: 80px;
+    margin: 0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.8rem;
+    color: #e2e8f0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.6;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.script-block pre .cmd { color: #00d4ff; }
+.script-block pre .param { color: #f97316; }
+.script-block pre .value { color: #22c55e; }
+
+.copy-script-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 6px 12px;
+    background: #374151;
+    border: none;
+    border-radius: 4px;
+    color: #e2e8f0;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.copy-script-btn:hover:not(:disabled) {
+    background: #00d4ff;
+    color: #0f1419;
+}
+
+.copy-script-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.copy-script-btn.copied {
+    background: #22c55e;
+    color: #fff;
+}
 </style>
 
 <script>
@@ -775,7 +1162,6 @@ function moveAsset(id, name) {
 }
 
 function editGroup(id, name) {
-    // Simple edit - could be expanded
     const newName = prompt('Enter new name:', name);
     if (newName && newName !== name) {
         const form = document.createElement('form');
@@ -785,6 +1171,90 @@ function editGroup(id, name) {
         document.body.appendChild(form);
         form.submit();
     }
+}
+
+// Deploy Agent Modal Functions
+function openDeployModal(groupId, groupName) {
+    document.getElementById('selectedGroupId').value = groupId;
+    document.getElementById('selectedGroupName').value = groupName;
+    document.getElementById('selectedGroupTag').textContent = groupName;
+    document.getElementById('serverAddress').value = '';
+    document.getElementById('agentName').value = '';
+    document.getElementById('installScript').textContent = 'Please enter the server address above to generate the installation script.';
+    document.getElementById('copyScriptBtn').disabled = true;
+    document.getElementById('deployAgentModal').style.display = 'flex';
+    updateScript();
+}
+
+function closeDeployModal() {
+    document.getElementById('deployAgentModal').style.display = 'none';
+}
+
+function updateScript() {
+    const serverAddress = document.getElementById('serverAddress').value.trim();
+    const agentName = document.getElementById('agentName').value.trim();
+    const groupName = document.getElementById('selectedGroupName').value;
+    const osType = document.querySelector('input[name="os_type"]:checked').value;
+    const architecture = document.querySelector('input[name="architecture"]:checked').value;
+    
+    const scriptEl = document.getElementById('installScript');
+    const copyBtn = document.getElementById('copyScriptBtn');
+    
+    // Show/hide Linux version step
+    const linuxVersionStep = document.getElementById('linuxVersionStep');
+    if (linuxVersionStep) {
+        linuxVersionStep.style.display = osType === 'linux' ? 'flex' : 'none';
+    }
+    
+    if (!serverAddress) {
+        scriptEl.textContent = 'Please enter the server address above to generate the installation script.';
+        copyBtn.disabled = true;
+        return;
+    }
+    
+    copyBtn.disabled = false;
+    
+    if (osType === 'linux') {
+        const linuxVersion = document.querySelector('input[name="linux_version"]:checked')?.value || 'ubuntu15';
+        scriptEl.innerHTML = generateLinuxScript(serverAddress, agentName, groupName, architecture, linuxVersion);
+    } else {
+        scriptEl.innerHTML = generateWindowsScript(serverAddress, agentName, groupName, architecture);
+    }
+}
+
+function generateLinuxScript(server, agentName, groupName, arch, version) {
+    const nameParam = agentName ? `\nXDR_AGENT_NAME="${agentName}"` : '';
+    
+    return `<span class="cmd">curl</span> <span class="param">-so</span> athena-xdr-agent.sh <span class="value">https://${server}/api/agent/install.sh</span> \\
+&& <span class="cmd">sudo</span> <span class="param">XDR_MANAGER</span>=<span class="value">'${server}'</span> \\
+<span class="param">XDR_AGENT_GROUP</span>=<span class="value">'${groupName}'</span>${nameParam} \\
+<span class="cmd">bash</span> ./athena-xdr-agent.sh`;
+}
+
+function generateWindowsScript(server, agentName, groupName, arch) {
+    const nameParam = agentName ? ` XDR_AGENT_NAME='${agentName}'` : '';
+    
+    return `<span class="cmd">Invoke-WebRequest</span> <span class="param">-Uri</span> <span class="value">https://${server}/api/agent/install.ps1</span> <span class="param">-OutFile</span> athena-agent.ps1; \\
+<span class="cmd">./athena-agent.ps1</span> <span class="param">-Server</span> <span class="value">'${server}'</span> <span class="param">-Group</span> <span class="value">'${groupName}'</span>${nameParam}`;
+}
+
+function copyScript() {
+    const scriptEl = document.getElementById('installScript');
+    const copyBtn = document.getElementById('copyScriptBtn');
+    
+    // Get plain text (remove HTML tags)
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = scriptEl.innerHTML;
+    const plainText = tempDiv.textContent || tempDiv.innerText;
+    
+    navigator.clipboard.writeText(plainText).then(() => {
+        copyBtn.innerHTML = '<span class="copy-icon">✓</span> Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+            copyBtn.innerHTML = '<span class="copy-icon">📋</span> Copy';
+            copyBtn.classList.remove('copied');
+        }, 2000);
+    });
 }
 
 // Tree toggle functionality
@@ -799,6 +1269,13 @@ document.querySelectorAll('.tree-toggle').forEach(toggle => {
             this.textContent = children.style.display === 'none' ? '+' : '-';
         }
     });
+});
+
+// Close modal on outside click
+document.getElementById('deployAgentModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDeployModal();
+    }
 });
 </script>
 @endsection

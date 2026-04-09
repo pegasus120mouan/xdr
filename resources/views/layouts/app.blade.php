@@ -735,6 +735,10 @@
                 <span class="icon">👥</span>
                 All Tenants
             </a>
+            <a href="{{ route('agents.index') }}" class="nav-item {{ request()->routeIs('agents.*') ? 'active' : '' }}">
+                <span class="icon">📡</span>
+                Log Agents
+            </a>
         </nav>
     </aside>
 
