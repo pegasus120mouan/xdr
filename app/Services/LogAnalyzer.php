@@ -113,7 +113,7 @@ class LogAnalyzer
     protected function createAlert(Agent $agent, array $rule, array $log): ?SecurityAlert
     {
         // Check for duplicate alerts (same rule, same agent, within time window)
-        $existingAlert = SecurityAlert::where('rule_id', $rule['id'])
+        $existingAlert = SecurityAlert::where('detection_rule_id', $rule['id'])
             ->where('source_ip', $agent->ip_address)
             ->where('status', '!=', 'resolved')
             ->where('created_at', '>=', now()->subMinutes(5))
@@ -128,16 +128,14 @@ class LogAnalyzer
 
         // Create new alert
         $alert = SecurityAlert::create([
-            'rule_id' => $rule['id'],
+            'detection_rule_id' => $rule['id'],
             'title' => $rule['name'] . ' - ' . $agent->hostname,
             'description' => $this->buildAlertDescription($rule, $log, $agent),
             'severity' => $rule['severity'],
-            'category' => $rule['category'] ?? 'security',
             'source_ip' => $agent->ip_address,
-            'source_host' => $agent->hostname,
-            'destination_ip' => null,
-            'user_involved' => $this->extractUsername($log['message'] ?? ''),
-            'raw_log' => json_encode($log),
+            'source_user' => $this->extractUsername($log['message'] ?? ''),
+            'affected_asset' => $agent->hostname,
+            'raw_data' => $log,
             'status' => 'new',
             'event_count' => 1,
             'first_seen' => now(),
