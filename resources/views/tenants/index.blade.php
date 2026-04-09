@@ -1223,9 +1223,9 @@ function updateScript() {
 }
 
 function generateLinuxScript(server, agentName, groupName, arch, version) {
-    const nameParam = agentName ? `\nXDR_AGENT_NAME="${agentName}"` : '';
+    const nameParam = agentName ? ` \\\n<span class="param">XDR_AGENT_NAME</span>=<span class="value">'${agentName}'</span>` : '';
     
-    return `<span class="cmd">curl</span> <span class="param">-so</span> athena-xdr-agent.sh <span class="value">https://${server}/api/agent/install.sh</span> \\
+    return `<span class="cmd">curl</span> <span class="param">-ksS</span> <span class="value">https://${server}/api/agent/install.sh</span> <span class="param">-o</span> athena-xdr-agent.sh \\
 && <span class="cmd">sudo</span> <span class="param">XDR_MANAGER</span>=<span class="value">'${server}'</span> \\
 <span class="param">XDR_AGENT_GROUP</span>=<span class="value">'${groupName}'</span>${nameParam} \\
 <span class="cmd">bash</span> ./athena-xdr-agent.sh`;

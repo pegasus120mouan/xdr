@@ -4,7 +4,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DetectionController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\AgentController;
-use App\Http\Controllers\Api\AgentApiController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -58,11 +57,3 @@ Route::middleware('auth')->group(function () {
     Route::delete('/agents/{agent}', [AgentController::class, 'delete'])->name('agents.delete');
 });
 
-// API Routes for Agents (no auth required - uses API key)
-Route::prefix('api/agent')->group(function () {
-    Route::post('/heartbeat', [AgentApiController::class, 'heartbeat']);
-    Route::post('/logs', [AgentApiController::class, 'receiveLogs']);
-    Route::post('/register', [AgentApiController::class, 'register']);
-    Route::get('/install.sh', [AgentApiController::class, 'installScript']);
-    Route::get('/{agent}/install.sh', [AgentController::class, 'installScript'])->name('api.agents.install-script');
-});
