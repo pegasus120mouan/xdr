@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\AgentLog;
 use App\Models\Asset;
+use App\Services\LogAnalyzer;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -95,8 +96,9 @@ class AgentApiController extends Controller
 
         // Store logs
         $logsCreated = 0;
+        $storedLogs = [];
         foreach ($data['logs'] as $log) {
-            AgentLog::create([
+            $agentLog = AgentLog::create([
                 'agent_id' => $agent->id,
                 'log_type' => $log['log_type'] ?? 'syslog',
                 'message' => $log['message'],
@@ -106,16 +108,20 @@ class AgentApiController extends Controller
                 'log_timestamp' => $this->parseTimestamp($log['log_timestamp'] ?? null),
                 'raw_data' => $log,
             ]);
+            $storedLogs[] = $log;
             $logsCreated++;
         }
 
-        // Analyze logs for security events
-        $this->analyzeLogsForThreats($agent, $data['logs']);
+        // Analyze logs with detection rules
+        $analyzer = new LogAnalyzer();
+        $alerts = $analyzer->analyzeLogs($agent, $storedLogs);
+        $alertsCreated = count($alerts);
 
         return response()->json([
             'status' => 'ok',
-            'message' => "Received {$logsCreated} logs",
+            'message' => "Received {$logsCreated} logs, {$alertsCreated} alerts created",
             'logs_processed' => $logsCreated,
+            'alerts_created' => $alertsCreated,
         ], 201);
     }
 
