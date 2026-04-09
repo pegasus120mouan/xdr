@@ -32,6 +32,9 @@ jobs:
             echo "🗄️ Running migrations..."
             php artisan migrate --force
 
+            echo "🌱 Seeding detection rules..."
+            php artisan db:seed --class=DetectionRulesSeeder --force
+
             echo "🔧 Caching configuration..."
             php artisan config:cache
             php artisan route:cache
