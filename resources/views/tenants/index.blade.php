@@ -1241,17 +1241,19 @@ function generateWindowsScript(server, agentName, groupName, arch) {
     const nameParam = agentName ? ` <span class="param">-AgentName</span> <span class="value">'${psQuote(agentName)}'</span>` : '';
     const ps1Url = `https://${server}/api/agent/install.ps1`;
 
-    return `<span class="cmd">Invoke-WebRequest</span> <span class="param">-Uri</span> <span class="value">'${ps1Url}'</span> <span class="param">-OutFile</span> <span class="value">'athena-agent.ps1'</span>; <span class="cmd">powershell.exe</span> <span class="param">-ExecutionPolicy Bypass -File</span> <span class="value">'.\\athena-agent.ps1'</span> <span class="param">-Server</span> <span class="value">'${s}'</span> <span class="param">-Group</span> <span class="value">'${g}'</span>${nameParam}`;
+    // Two lines for readability; no trailing "\" (invalid in PowerShell). Copy uses innerText so line breaks are preserved.
+    const line1 = `<span class="cmd">Invoke-WebRequest</span> <span class="param">-UseBasicParsing</span> <span class="param">-Uri</span> <span class="value">'${ps1Url}'</span> <span class="param">-OutFile</span> <span class="value">'athena-agent.ps1'</span>`;
+    const line2 = `<span class="cmd">powershell.exe</span> <span class="param">-ExecutionPolicy Bypass -File</span> <span class="value">'.\\athena-agent.ps1'</span> <span class="param">-Server</span> <span class="value">'${s}'</span> <span class="param">-Group</span> <span class="value">'${g}'</span>${nameParam}`;
+
+    return `${line1}<br>${line2}`;
 }
 
 function copyScript() {
     const scriptEl = document.getElementById('installScript');
     const copyBtn = document.getElementById('copyScriptBtn');
     
-    // Get plain text (remove HTML tags)
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = scriptEl.innerHTML;
-    const plainText = tempDiv.textContent || tempDiv.innerText;
+    // innerText preserves line breaks from <br> (Windows script is two lines; Linux uses text with newlines in spans)
+    const plainText = (scriptEl.innerText || scriptEl.textContent || '').trim();
     
     navigator.clipboard.writeText(plainText).then(() => {
         copyBtn.innerHTML = '<span class="copy-icon">✓</span> Copied!';
