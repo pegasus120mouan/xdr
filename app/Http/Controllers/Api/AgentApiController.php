@@ -571,7 +571,8 @@ $registerResult = $null
 $xdrBase = $null
 foreach ($scheme in @("https", "http")) {
     try {
-        $xdrBase = "$scheme://$($Server.Trim().TrimEnd('/'))"
+        # PowerShell parses "$scheme://..." as a drive-style scope; use -f or ${scheme}://
+        $xdrBase = ('{0}://{1}' -f $scheme, ($Server.Trim().TrimEnd('/')))
         $registerResult = Invoke-XdrRegister -BaseUrl $xdrBase
         break
     } catch {
