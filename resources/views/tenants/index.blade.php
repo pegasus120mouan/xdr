@@ -400,6 +400,11 @@
                 <div class="step-content">
                     <h3>Install and enroll the agent</h3>
                     <p class="step-desc">You can use this command to install and enroll the Wara XDR agent in one or more hosts.</p>
+
+                    <div id="windowsAdminHint" class="info-box warning" style="display: none;">
+                        <span class="info-icon">⚠️</span>
+                        <span><strong>Windows:</strong> Right-click PowerShell → <strong>Run as administrator</strong>, then paste the command. The installer needs elevation to create the scheduled task and write under <code>ProgramData</code>.</span>
+                    </div>
                     
                     <div class="info-box info">
                         <span class="info-icon">ℹ️</span>
@@ -1199,6 +1204,10 @@ function updateScript() {
     
     const scriptEl = document.getElementById('installScript');
     const copyBtn = document.getElementById('copyScriptBtn');
+    const winHint = document.getElementById('windowsAdminHint');
+    if (winHint) {
+        winHint.style.display = osType === 'windows' ? 'flex' : 'none';
+    }
     
     // Show/hide Linux version step
     const linuxVersionStep = document.getElementById('linuxVersionStep');
