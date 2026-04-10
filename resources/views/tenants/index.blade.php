@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'All Tenants - Athena XDR')
+@section('title', 'All Tenants - Wara XDR')
 
 @section('content')
 <div class="page-content tenants-page">
@@ -399,7 +399,7 @@
                 <div class="step-number">6</div>
                 <div class="step-content">
                     <h3>Install and enroll the agent</h3>
-                    <p class="step-desc">You can use this command to install and enroll the Athena XDR agent in one or more hosts.</p>
+                    <p class="step-desc">You can use this command to install and enroll the Wara XDR agent in one or more hosts.</p>
                     
                     <div class="info-box info">
                         <span class="info-icon">ℹ️</span>

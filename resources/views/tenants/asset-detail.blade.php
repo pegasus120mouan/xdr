@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', $asset->hostname . ' - Athena XDR')
+@section('title', $asset->hostname . ' - Wara XDR')
 
 @section('content')
 <div class="page-content">

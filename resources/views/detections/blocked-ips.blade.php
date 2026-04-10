@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Blocked IPs - Athena XDR')
+@section('title', 'Blocked IPs - Wara XDR')
 
 @section('content')
 <div class="page-content">

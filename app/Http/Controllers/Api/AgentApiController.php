@@ -264,7 +264,7 @@ class AgentApiController extends Controller
         $script = <<<'BASH'
 #!/bin/bash
 #
-# Athena XDR Agent Installation Script
+# Wara XDR Agent Installation Script
 # Auto-registration version
 #
 
@@ -285,7 +285,7 @@ INSTALL_DIR="/opt/athena-xdr"
 
 echo -e "${BLUE}"
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║              ATHENA XDR - Agent Installation                 ║"
+echo "║              Wara XDR - Agent Installation                 ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -346,7 +346,7 @@ mkdir -p $INSTALL_DIR/state
 # Create configuration file
 echo -e "${YELLOW}[*] Creating configuration...${NC}"
 cat > $INSTALL_DIR/config.conf << EOF
-# Athena XDR Agent Configuration
+# Wara XDR Agent Configuration
 XDR_SERVER=$XDR_MANAGER
 API_KEY=$API_KEY
 AGENT_ID=$AGENT_ID
@@ -464,7 +464,7 @@ chmod +x $INSTALL_DIR/xdr-agent.sh
 echo -e "${YELLOW}[*] Creating systemd service...${NC}"
 cat > /etc/systemd/system/athena-xdr-agent.service << EOF
 [Unit]
-Description=Athena XDR Log Collection Agent
+Description=Wara XDR Log Collection Agent
 After=network.target
 
 [Service]

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Login Attempts - Athena XDR')
+@section('title', 'Login Attempts - Wara XDR')
 
 @section('content')
 <div class="page-content">

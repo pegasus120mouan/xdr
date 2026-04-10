@@ -1,4 +1,4 @@
-# Athena XDR
+# Wara XDR
 
 **Extended Detection and Response Platform**
 

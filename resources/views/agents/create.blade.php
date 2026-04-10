@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Deploy Agent - Athena XDR')
+@section('title', 'Deploy Agent - Wara XDR')
 
 @section('content')
 <div class="page-content">
@@ -18,7 +18,7 @@
                 <div class="card-icon">🚀</div>
                 <div>
                     <h2>Deploy New Log Collection Agent</h2>
-                    <p>Create an agent to collect logs from a Linux server</p>
+                    <p>Create an agent to collect logs from a Linux or Windows machine</p>
                 </div>
             </div>
 
@@ -45,6 +45,15 @@
                             @endforeach
                         </select>
                         <span class="form-hint">The group this agent belongs to</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Target Operating System <span class="required">*</span></label>
+                        <select name="os_type" class="form-input" required>
+                            <option value="linux" {{ old('os_type', 'linux') === 'linux' ? 'selected' : '' }}>Linux</option>
+                            <option value="windows" {{ old('os_type') === 'windows' ? 'selected' : '' }}>Windows</option>
+                        </select>
+                        <span class="form-hint">Determines which installation script will be generated</span>
                     </div>
                 </div>
 
@@ -100,6 +109,22 @@
                                 <span class="log-type-desc">Container logs</span>
                             </span>
                         </label>
+                        <label class="log-type-option">
+                            <input type="checkbox" name="log_types[]" value="eventlog">
+                            <span class="log-type-card">
+                                <span class="log-type-icon">🧾</span>
+                                <span class="log-type-name">Event Log</span>
+                                <span class="log-type-desc">Windows Application/System</span>
+                            </span>
+                        </label>
+                        <label class="log-type-option">
+                            <input type="checkbox" name="log_types[]" value="security">
+                            <span class="log-type-card">
+                                <span class="log-type-icon">🛡️</span>
+                                <span class="log-type-name">Security</span>
+                                <span class="log-type-desc">Windows Security events</span>
+                            </span>
+                        </label>
                     </div>
                 </div>
 
@@ -133,14 +158,14 @@
                     <span class="step-number">3</span>
                     <div>
                         <strong>Run on your server</strong>
-                        <p>Execute the script with sudo on your Linux server</p>
+                        <p>Execute the generated script on your Linux or Windows machine</p>
                     </div>
                 </li>
                 <li>
                     <span class="step-number">4</span>
                     <div>
                         <strong>Start collecting</strong>
-                        <p>Logs will be sent automatically to Athena XDR</p>
+                        <p>Logs will be sent automatically to Wara XDR</p>
                     </div>
                 </li>
             </ol>
@@ -149,7 +174,9 @@
                 <h4>Requirements</h4>
                 <ul>
                     <li>Linux server (Ubuntu, Debian, CentOS, RHEL)</li>
+                    <li>Windows Server or Windows 10/11 (for Windows agent)</li>
                     <li>Root/sudo access</li>
+                    <li>Administrator access (for Windows scheduled task)</li>
                     <li>curl installed</li>
                     <li>Network access to this server</li>
                 </ul>

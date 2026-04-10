@@ -1,4 +1,4 @@
-# Athena XDR - Documentation Technique
+# Wara XDR - Documentation Technique
 
 ## Table des matières
 
@@ -15,7 +15,7 @@
 
 ## Vue d'ensemble
 
-**Athena XDR** est une plateforme de détection et réponse étendue (Extended Detection and Response) qui permet de :
+**Wara XDR** est une plateforme de détection et réponse étendue (Extended Detection and Response) qui permet de :
 
 - 🔍 **Collecter** les logs de serveurs Linux/Windows via des agents
 - 🛡️ **Détecter** les menaces en temps réel avec des règles personnalisables
@@ -38,7 +38,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        ATHENA XDR SERVER                        │
+│                        Wara XDR SERVER                        │
 │                      (korashield.online)                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
@@ -135,7 +135,7 @@ php artisan db:seed --class=DatabaseSeeder
 
 ### Méthode 1 : Via l'interface web (recommandé)
 
-1. Connectez-vous à Athena XDR
+1. Connectez-vous à Wara XDR
 2. Allez dans **All Tenants**
 3. Sélectionnez un groupe (ex: "Fisher")
 4. Cliquez sur **"⊕ Deploy new agent"**

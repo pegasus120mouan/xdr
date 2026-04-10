@@ -1,4 +1,4 @@
-# 🚀 Guide de Démarrage Rapide - Athena XDR
+# 🚀 Guide de Démarrage Rapide - Wara XDR
 
 ## Déployer un agent en 2 minutes
 

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Alert Details - Athena XDR')
+@section('title', 'Alert Details - Wara XDR')
 
 @section('content')
 <div class="page-content">

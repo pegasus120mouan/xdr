@@ -1,10 +1,10 @@
-# Architecture Athena XDR
+# Architecture Wara XDR
 
 ## Diagramme de flux
 
 ```
                                     ┌─────────────────────────────────────┐
-                                    │         ATHENA XDR SERVER           │
+                                    │         Wara XDR SERVER           │
                                     │        (korashield.online)          │
                                     │                                     │
                                     │  ┌───────────────────────────────┐  │
@@ -184,7 +184,7 @@
 
 ```ini
 [Unit]
-Description=Athena XDR Log Collection Agent
+Description=Wara XDR Log Collection Agent
 After=network.target
 
 [Service]

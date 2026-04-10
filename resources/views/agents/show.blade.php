@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', $agent->name . ' - Athena XDR')
+@section('title', $agent->name . ' - Wara XDR')
 
 @section('content')
 <div class="page-content">
@@ -112,16 +112,23 @@
             <h3 class="card-title">🚀 Installation Script</h3>
             
             @if($agent->status === 'pending')
+                @php
+                    $isWindows = $agent->os_type === 'windows';
+                    $downloadUrl = route('agents.install-script', $agent);
+                    $installCommand = $isWindows
+                        ? "powershell -ExecutionPolicy Bypass -Command \"iwr -UseBasicParsing {$downloadUrl} -OutFile xdr-agent-install.ps1; .\\\\xdr-agent-install.ps1\""
+                        : "curl -sSL {$downloadUrl} -o xdr-agent-install.sh && sudo bash xdr-agent-install.sh";
+                @endphp
                 <div class="install-instructions">
-                    <p>Run this command on your Linux server:</p>
+                    <p>Run this command on your {{ $isWindows ? 'Windows machine' : 'Linux server' }}:</p>
                     <div class="code-block">
-                        <code>curl -sSL {{ $serverUrl }}/api/agent/{{ $agent->id }}/install.sh | sudo bash</code>
-                        <button class="copy-btn" onclick="copyToClipboard(this, 'curl -sSL {{ $serverUrl }}/api/agent/{{ $agent->id }}/install.sh | sudo bash')">📋</button>
+                        <code>{{ $installCommand }}</code>
+                        <button class="copy-btn" onclick="copyToClipboard(this, @js($installCommand))">📋</button>
                     </div>
                     
                     <p class="or-text">Or download and run manually:</p>
                     <a href="{{ route('agents.install-script', $agent) }}" class="btn btn-primary btn-block">
-                        ⬇️ Download Install Script
+                        ⬇️ Download {{ $isWindows ? 'PowerShell Script (.ps1)' : 'Install Script (.sh)' }}
                     </a>
                     
                     <div class="script-info">

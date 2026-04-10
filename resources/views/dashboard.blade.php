@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Monitor Overview - Athena XDR')
+@section('title', 'Monitor Overview - Wara XDR')
 
 @section('content')
 <div class="page-content">
