@@ -1231,11 +1231,17 @@ function generateLinuxScript(server, agentName, groupName, arch, version) {
 <span class="cmd">bash</span> ./athena-xdr-agent.sh`;
 }
 
+function psQuote(s) {
+    return String(s).replace(/'/g, "''");
+}
+
 function generateWindowsScript(server, agentName, groupName, arch) {
-    const nameParam = agentName ? ` XDR_AGENT_NAME='${agentName}'` : '';
-    
-    return `<span class="cmd">Invoke-WebRequest</span> <span class="param">-Uri</span> <span class="value">https://${server}/api/agent/install.ps1</span> <span class="param">-OutFile</span> athena-agent.ps1; \\
-<span class="cmd">./athena-agent.ps1</span> <span class="param">-Server</span> <span class="value">'${server}'</span> <span class="param">-Group</span> <span class="value">'${groupName}'</span>${nameParam}`;
+    const s = psQuote(server);
+    const g = psQuote(groupName);
+    const nameParam = agentName ? ` <span class="param">-AgentName</span> <span class="value">'${psQuote(agentName)}'</span>` : '';
+    const ps1Url = `https://${server}/api/agent/install.ps1`;
+
+    return `<span class="cmd">Invoke-WebRequest</span> <span class="param">-Uri</span> <span class="value">'${ps1Url}'</span> <span class="param">-OutFile</span> <span class="value">'athena-agent.ps1'</span>; <span class="cmd">powershell.exe</span> <span class="param">-ExecutionPolicy Bypass -File</span> <span class="value">'.\\athena-agent.ps1'</span> <span class="param">-Server</span> <span class="value">'${s}'</span> <span class="param">-Group</span> <span class="value">'${g}'</span>${nameParam}`;
 }
 
 function copyScript() {

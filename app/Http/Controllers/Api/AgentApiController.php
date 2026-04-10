@@ -228,6 +228,8 @@ class AgentApiController extends Controller
             return response()->json(['error' => 'Group not found'], 404);
         }
 
+        $osType = $data['os_type'] ?? 'linux';
+
         // Create the agent
         $agent = Agent::create([
             'agent_id' => Agent::generateAgentId(),
@@ -235,14 +237,14 @@ class AgentApiController extends Controller
             'hostname' => $data['hostname'],
             'ip_address' => $data['ip_address'] ?? $request->ip(),
             'tenant_group_id' => $group->id,
-            'os_type' => $data['os_type'] ?? 'linux',
+            'os_type' => $osType,
             'os_version' => $data['os_version'] ?? null,
             'api_key' => Agent::generateApiKey(),
             'status' => 'active',
             'registered_at' => now(),
             'last_heartbeat' => now(),
             'config' => [
-                'log_types' => ['syslog', 'auth'],
+                'log_types' => $osType === 'windows' ? ['eventlog', 'security'] : ['syslog', 'auth'],
                 'send_interval' => 60,
                 'batch_size' => 100,
             ],
@@ -504,5 +506,221 @@ BASH;
         return response($script, 200)
             ->header('Content-Type', 'text/plain')
             ->header('Content-Disposition', 'attachment; filename="athena-xdr-agent.sh"');
+    }
+
+    /**
+     * One-shot Windows installer (auto-register), same role as install.sh for Linux.
+     * Served at GET /api/agent/install.ps1
+     */
+    public function installPowerShellScript()
+    {
+        $script = <<<'PS1'
+# Wara XDR Agent — Windows installer (auto-register)
+#requires -RunAsAdministrator
+
+param(
+    [Parameter(Mandatory = $true)]
+    [string] $Server,
+
+    [Parameter(Mandatory = $true)]
+    [string] $Group,
+
+    [Parameter(Mandatory = $false)]
+    [string] $AgentName = ""
+)
+
+$ErrorActionPreference = "Stop"
+
+$Server = $Server.Trim()
+if ($Server -match '^\s*https?://') {
+    $Server = ([Uri]$Server).Host
+    if ([string]::IsNullOrWhiteSpace($Server)) {
+        Write-Host "[ERROR] Invalid server address." -ForegroundColor Red
+        exit 1
+    }
+}
+
+function Get-DeviceIp {
+    $ip = Get-NetIPAddress -AddressFamily IPv4 |
+        Where-Object { $_.IPAddress -ne "127.0.0.1" } |
+        Select-Object -First 1 -ExpandProperty IPAddress
+    if ([string]::IsNullOrWhiteSpace($ip)) { return "unknown" }
+    return $ip
+}
+
+function Invoke-XdrRegister {
+    param([string] $BaseUrl)
+
+    $payload = [ordered]@{
+        hostname    = $env:COMPUTERNAME
+        ip_address  = Get-DeviceIp
+        os_type     = "windows"
+        os_version  = [Environment]::OSVersion.VersionString
+        group_name  = $Group
+    }
+    if ($AgentName) { $payload["agent_name"] = $AgentName }
+
+    $uri = "$BaseUrl/api/agent/register"
+    $body = ($payload | ConvertTo-Json -Depth 4)
+    return Invoke-RestMethod -Uri $uri -Method Post -Body $body -ContentType "application/json; charset=utf-8"
+}
+
+Write-Host "[*] Registering agent with XDR server..." -ForegroundColor Yellow
+
+$registerResult = $null
+$xdrBase = $null
+foreach ($scheme in @("https", "http")) {
+    try {
+        $xdrBase = "$scheme://$($Server.Trim().TrimEnd('/'))"
+        $registerResult = Invoke-XdrRegister -BaseUrl $xdrBase
+        break
+    } catch {
+        $registerResult = $null
+    }
+}
+
+if (-not $registerResult -or -not $registerResult.agent_id -or -not $registerResult.api_key) {
+    Write-Host "[ERROR] Failed to register agent. Check server address, TLS, and that the tenant group exists." -ForegroundColor Red
+    exit 1
+}
+
+$AgentId = $registerResult.agent_id
+$ApiKey = $registerResult.api_key
+
+Write-Host "[OK] Agent registered: $AgentId" -ForegroundColor Green
+
+$InstallDir = "C:\ProgramData\AthenaXDR"
+$LogDir = Join-Path $InstallDir "logs"
+$SendInterval = 60
+$BatchSize = 100
+$ConfigFile = Join-Path $InstallDir "config.json"
+$AgentScript = Join-Path $InstallDir "xdr-agent.ps1"
+
+New-Item -Path $InstallDir -ItemType Directory -Force | Out-Null
+New-Item -Path $LogDir -ItemType Directory -Force | Out-Null
+
+$config = @{
+    xdr_server     = $xdrBase
+    api_key        = $ApiKey
+    agent_id       = $AgentId
+    send_interval  = $SendInterval
+    batch_size     = $BatchSize
+}
+$config | ConvertTo-Json -Depth 4 | Set-Content -Path $ConfigFile -Encoding UTF8
+
+@'
+param()
+$ErrorActionPreference = "SilentlyContinue"
+
+$InstallDir = "C:\ProgramData\AthenaXDR"
+$LogDir = Join-Path $InstallDir "logs"
+$Config = Get-Content (Join-Path $InstallDir "config.json") -Raw | ConvertFrom-Json
+$StateFile = Join-Path $InstallDir "last-state.json"
+$AgentLog = Join-Path $LogDir "agent.log"
+
+function Write-AgentLog {
+    param([string]$Message)
+    $line = "{0} - {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
+    Add-Content -Path $AgentLog -Value $line
+}
+
+function Get-DeviceIp {
+    $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -ne "127.0.0.1" } | Select-Object -First 1 -ExpandProperty IPAddress)
+    if ([string]::IsNullOrWhiteSpace($ip)) { return "unknown" }
+    return $ip
+}
+
+function Send-Heartbeat {
+    $body = @{
+        agent_id = $Config.agent_id
+        hostname = $env:COMPUTERNAME
+        ip_address = (Get-DeviceIp)
+        os_type = "windows"
+        os_version = [Environment]::OSVersion.VersionString
+    } | ConvertTo-Json -Depth 4
+
+    Invoke-RestMethod -Uri "$($Config.xdr_server.TrimEnd('/'))/api/agent/heartbeat" -Method Post -Headers @{
+        "X-Agent-ID" = $Config.agent_id
+        "X-API-Key" = $Config.api_key
+        "Content-Type" = "application/json"
+    } -Body $body | Out-Null
+}
+
+function Get-SecurityEvents {
+    $lastRun = (Get-Date).AddMinutes(-5)
+    if (Test-Path $StateFile) {
+        try {
+            $state = Get-Content $StateFile -Raw | ConvertFrom-Json
+            if ($state.last_run) { $lastRun = [DateTime]$state.last_run }
+        } catch {}
+    }
+
+    try {
+        $events = Get-WinEvent -FilterHashtable @{LogName='Security'; StartTime=$lastRun} -MaxEvents 100 -ErrorAction Stop
+    } catch {
+        return @()
+    }
+
+    $payload = foreach ($event in $events) {
+        @{
+            log_type = "security"
+            message = $event.Message
+            severity = if ($event.LevelDisplayName -eq "Error") { "error" } elseif ($event.LevelDisplayName -eq "Warning") { "warning" } else { "info" }
+            hostname = $env:COMPUTERNAME
+            process = "winevent"
+            log_timestamp = $event.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
+        }
+    }
+
+    @{ last_run = (Get-Date).ToString("o"); logs = $payload } | ConvertTo-Json -Depth 5 | Set-Content -Path $StateFile -Encoding UTF8
+    return $payload
+}
+
+function Send-Logs {
+    param([array]$Logs)
+    if (-not $Logs -or $Logs.Count -eq 0) { return }
+
+    $body = @{
+        agent_id = $Config.agent_id
+        hostname = $env:COMPUTERNAME
+        ip_address = (Get-DeviceIp)
+        logs = $Logs | Select-Object -First $Config.batch_size
+    } | ConvertTo-Json -Depth 7
+
+    Invoke-RestMethod -Uri "$($Config.xdr_server.TrimEnd('/'))/api/agent/logs" -Method Post -Headers @{
+        "X-Agent-ID" = $Config.agent_id
+        "X-API-Key" = $Config.api_key
+        "Content-Type" = "application/json"
+    } -Body $body | Out-Null
+}
+
+Write-AgentLog "Agent loop started"
+try {
+    Send-Heartbeat
+    $logs = @(Get-SecurityEvents)
+    Send-Logs -Logs $logs
+    Write-AgentLog ("Cycle complete, sent {0} logs" -f $logs.Count)
+} catch {
+    Write-AgentLog ("Cycle failed: {0}" -f $_.Exception.Message)
+}
+'@ | Set-Content -Path $AgentScript -Encoding UTF8
+
+Write-Host "[*] Registering scheduled task..." -ForegroundColor Yellow
+
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$AgentScript`""
+$trigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1)) -RepetitionInterval (New-TimeSpan -Seconds $SendInterval) -RepetitionDuration ([TimeSpan]::FromDays(3650))
+$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+Register-ScheduledTask -TaskName "AthenaXdrAgent" -Action $action -Trigger $trigger -Principal $principal -Force | Out-Null
+
+Start-ScheduledTask -TaskName "AthenaXdrAgent"
+
+Write-Host "[OK] Windows agent installed and started." -ForegroundColor Green
+Write-Host "Task name: AthenaXdrAgent"
+Write-Host "Logs: $LogDir\agent.log"
+PS1;
+
+        return response($script, 200)
+            ->header('Content-Type', 'text/plain; charset=UTF-8')
+            ->header('Content-Disposition', 'attachment; filename="install.ps1"');
     }
 }
