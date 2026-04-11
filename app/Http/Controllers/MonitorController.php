@@ -7,6 +7,7 @@ use App\Models\BlockedIp;
 use App\Models\DetectionRule;
 use App\Models\SecurityAlert;
 use App\Models\TenantGroup;
+use App\Support\AttackMapGeo;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -164,6 +165,167 @@ class MonitorController extends Controller
             'assetAlertHints' => $assetAlertHints,
             'assetAlertLinks' => $assetAlertLinks,
             'blockedDistinctIps' => $blockedDistinctIps,
+        ]);
+    }
+
+    public function attackMap()
+    {
+        $home = config('attack_map.home');
+        $startOfDay = now()->startOfDay();
+        $mapWindowStart = now()->subDays(7);
+
+        $todayAlerts = SecurityAlert::query()
+            ->where(function ($q) use ($startOfDay) {
+                $q->where('last_seen', '>=', $startOfDay)
+                    ->orWhere(function ($q2) use ($startOfDay) {
+                        $q2->whereNull('last_seen')
+                            ->where('created_at', '>=', $startOfDay);
+                    });
+            })
+            ->get();
+
+        $eventsToday = $todayAlerts->count();
+        $attacksToday = (int) $todayAlerts->sum(fn (SecurityAlert $a) => max(1, (int) ($a->event_count ?? 0)));
+
+        $threatToday = [
+            'high' => $todayAlerts->whereIn('severity', ['high', 'critical'])->count(),
+            'medium' => $todayAlerts->where('severity', 'medium')->count(),
+            'low' => $todayAlerts->where('severity', 'low')->count(),
+        ];
+
+        $recentForMap = SecurityAlert::query()
+            ->with(['rule:id,name,category'])
+            ->where(function ($q) use ($mapWindowStart) {
+                $q->where('last_seen', '>=', $mapWindowStart)
+                    ->orWhere(function ($q2) use ($mapWindowStart) {
+                        $q2->whereNull('last_seen')
+                            ->where('created_at', '>=', $mapWindowStart);
+                    });
+            })
+            ->whereNotNull('source_ip')
+            ->where('source_ip', '!=', '')
+            ->orderByDesc('last_seen')
+            ->limit(80)
+            ->get();
+
+        $mapW = 1000;
+        $mapH = 500;
+        [$hx, $hy] = AttackMapGeo::project((float) $home['lat'], (float) $home['lng'], $mapW, $mapH);
+
+        $countryAgg = [];
+        $arcs = [];
+        $seenIps = [];
+
+        foreach ($recentForMap as $alert) {
+            $ip = strtolower(trim((string) $alert->source_ip));
+            if ($ip === '') {
+                continue;
+            }
+            $geo = AttackMapGeo::forIp($ip);
+            if ($geo === null) {
+                continue;
+            }
+            $code = $geo['code'];
+            if (! isset($countryAgg[$code])) {
+                $countryAgg[$code] = ['name' => $geo['name'], 'code' => $code, 'count' => 0];
+            }
+            $countryAgg[$code]['count']++;
+
+            if (isset($seenIps[$ip])) {
+                continue;
+            }
+            $seenIps[$ip] = true;
+
+            [$sx, $sy] = AttackMapGeo::project($geo['lat'], $geo['lng'], $mapW, $mapH);
+            $mx = ($sx + $hx) / 2;
+            $bulge = min(140, max(36, abs($sx - $hx) * 0.12 + abs($sy - $hy) * 0.08));
+            $my = ($sy + $hy) / 2 - $bulge;
+
+            $arcs[] = [
+                'path' => sprintf('M %.2f,%.2f Q %.2f,%.2f %.2f,%.2f', $sx, $sy, $mx, $my, $hx, $hy),
+                'severity' => $alert->severity,
+            ];
+        }
+
+        uasort($countryAgg, fn ($a, $b) => $b['count'] <=> $a['count']);
+        $sourceCountries = array_values($countryAgg);
+        $srcCounts = array_column($sourceCountries, 'count');
+        $maxSrc = $srcCounts === [] ? 1 : max(1, max($srcCounts));
+        foreach ($sourceCountries as $i => $row) {
+            $sourceCountries[$i]['pct'] = (int) round(100 * $row['count'] / $maxSrc);
+        }
+        $sourceCountries = array_slice($sourceCountries, 0, 8);
+
+        $typeSource = SecurityAlert::query()
+            ->with(['rule:id,name,category'])
+            ->where(function ($q) use ($mapWindowStart) {
+                $q->where('last_seen', '>=', $mapWindowStart)
+                    ->orWhere(function ($q2) use ($mapWindowStart) {
+                        $q2->whereNull('last_seen')
+                            ->where('created_at', '>=', $mapWindowStart);
+                    });
+            })
+            ->get();
+
+        $attackTypes = $typeSource
+            ->groupBy(function (SecurityAlert $a) {
+                $name = $a->rule?->name;
+                $cat = $a->rule?->category;
+
+                return Str::limit(trim($name ?: '') ?: (string) $cat, 22) ?: 'Autre';
+            })
+            ->map->count()
+            ->sortDesc()
+            ->take(8);
+
+        $topTargets = SecurityAlert::query()
+            ->where(function ($q) use ($mapWindowStart) {
+                $q->where('last_seen', '>=', $mapWindowStart)
+                    ->orWhere(function ($q2) use ($mapWindowStart) {
+                        $q2->whereNull('last_seen')
+                            ->where('created_at', '>=', $mapWindowStart);
+                    });
+            })
+            ->whereNotNull('target_ip')
+            ->where('target_ip', '!=', '')
+            ->selectRaw('target_ip, MAX(COALESCE(affected_asset, "")) as affected_asset, COUNT(*) as c')
+            ->groupBy('target_ip')
+            ->orderByDesc('c')
+            ->limit(8)
+            ->get();
+
+        $recentList = SecurityAlert::query()
+            ->with(['rule:id,name,category'])
+            ->orderByDesc('last_seen')
+            ->limit(25)
+            ->get();
+
+        $recentRows = $recentList->map(function (SecurityAlert $a) {
+            $geo = $a->source_ip ? AttackMapGeo::forIp(strtolower(trim((string) $a->source_ip))) : null;
+
+            return [
+                'time' => $a->last_seen ?? $a->created_at,
+                'geo_label' => $geo['name'] ?? '—',
+                'geo_code' => $geo['code'] ?? '',
+                'source_ip' => $a->source_ip ?: '—',
+                'target_ip' => $a->target_ip ?: '—',
+                'attack_type' => Str::limit($a->rule?->name ?? $a->rule?->category ?? '—', 40),
+                'severity' => $a->severity,
+            ];
+        });
+
+        return view('monitor.attack-map', [
+            'home' => $home,
+            'mapSize' => ['w' => $mapW, 'h' => $mapH],
+            'homeXY' => ['x' => $hx, 'y' => $hy],
+            'eventsToday' => $eventsToday,
+            'attacksToday' => $attacksToday,
+            'threatToday' => $threatToday,
+            'sourceCountries' => $sourceCountries,
+            'attackTypes' => $attackTypes,
+            'topTargets' => $topTargets,
+            'recentRows' => $recentRows,
+            'arcs' => array_slice($arcs, 0, 40),
         ]);
     }
 

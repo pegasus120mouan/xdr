@@ -691,6 +691,7 @@
                 <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">Monitor Overview</a>
                 <a href="#" class="nav-item">Guarding Overview</a>
                 <a href="{{ route('monitor.monitors') }}" target="_blank" rel="noopener noreferrer" class="nav-item">Monitors</a>
+                <a href="{{ route('monitor.attack-map') }}" target="_blank" rel="noopener noreferrer" class="nav-item">Map Attacks</a>
                 <a href="#" class="nav-item">Reports</a>
             </div>
             <a href="#" class="nav-item">

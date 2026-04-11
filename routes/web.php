@@ -1,10 +1,10 @@
 <?php
 
+use App\Http\Controllers\AgentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DetectionController;
-use App\Http\Controllers\TenantController;
-use App\Http\Controllers\AgentController;
 use App\Http\Controllers\MonitorController;
+use App\Http\Controllers\TenantController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -21,6 +21,7 @@ Route::middleware('auth')->group(function () {
     })->name('dashboard');
 
     Route::get('/monitor/monitors', [MonitorController::class, 'monitors'])->name('monitor.monitors');
+    Route::get('/monitor/attack-map', [MonitorController::class, 'attackMap'])->name('monitor.attack-map');
 
     Route::get('/monitor/configure', [MonitorController::class, 'configure'])->name('monitor.configure');
     Route::post('/monitor/configure', [MonitorController::class, 'saveConfigure'])->name('monitor.configure.save');
@@ -62,4 +63,3 @@ Route::middleware('auth')->group(function () {
     Route::get('/agents/{agent}/install.sh', [AgentController::class, 'installScript'])->name('agents.install-script');
     Route::delete('/agents/{agent}', [AgentController::class, 'delete'])->name('agents.delete');
 });
-
