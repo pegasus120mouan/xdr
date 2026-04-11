@@ -49,6 +49,7 @@ class MonitorController extends Controller
             'monitoredAssets' => $monitoredAssets,
             'monitoredCount' => $monitoredAssets->count(),
             'underAttackAssetIds' => $underAttackAssetIds,
+            'showIronDome' => count($underAttackAssetIds) > 0,
         ]);
     }
 

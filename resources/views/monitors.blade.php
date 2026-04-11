@@ -235,10 +235,11 @@
         --holo-navy: #000033;
         --holo-cyan: #00ccff;
         --holo-red: #ff3300;
+        position: relative;
+        z-index: 4;
         perspective: 1100px;
         perspective-origin: 50% 0%;
         margin-top: 4px;
-        position: relative;
         padding-bottom: 8px;
     }
 
@@ -293,6 +294,7 @@
         height: 300px;
         margin-left: -150px;
         margin-top: -150px;
+        z-index: 1;
         border-radius: 50%;
         border: 1px solid rgba(0, 204, 255, 0.55);
         background:
@@ -342,7 +344,7 @@
         top: 42%;
         width: 0;
         height: 0;
-        z-index: 2;
+        z-index: 4;
         pointer-events: none;
         animation: soc-plat-spin var(--orbit-dur, 52s) linear infinite;
         transform-style: preserve-3d;
@@ -561,6 +563,200 @@
         box-shadow:
             0 2px 12px rgba(0, 0, 0, 0.5),
             0 0 18px rgba(255, 51, 0, 0.35);
+    }
+
+    /* Dôme de fer — coque derrière les assets, impacts devant */
+    .soc-plat-stack {
+        position: relative;
+    }
+
+    .soc-iron-dome-shell,
+    .soc-iron-dome-fx {
+        position: absolute;
+        left: 50%;
+        bottom: 68px;
+        width: 360px;
+        height: 228px;
+        margin-left: -180px;
+        pointer-events: none;
+    }
+
+    .soc-iron-dome-shell {
+        z-index: 2;
+    }
+
+    .soc-iron-dome-fx {
+        z-index: 6;
+    }
+
+    .soc-iron-dome__hemi {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: 302px;
+        height: 170px;
+        margin-left: -151px;
+        border-radius: 151px 151px 0 0;
+        border: 2px solid rgba(0, 238, 255, 0.5);
+        border-bottom: none;
+        background: radial-gradient(
+            ellipse 88% 100% at 50% 100%,
+            rgba(0, 40, 90, 0.06) 0%,
+            rgba(0, 200, 255, 0.06) 45%,
+            rgba(0, 230, 255, 0.12) 78%,
+            rgba(0, 255, 255, 0.06) 100%
+        );
+        box-shadow:
+            0 -10px 55px rgba(0, 210, 255, 0.14),
+            inset 0 -28px 75px rgba(0, 180, 255, 0.07);
+        animation: iron-dome-breathe 3.2s ease-in-out infinite;
+    }
+
+    .soc-iron-dome__mesh {
+        position: absolute;
+        bottom: 2px;
+        left: 50%;
+        width: 292px;
+        height: 162px;
+        margin-left: -146px;
+        border-radius: 146px 146px 0 0;
+        background:
+            repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 10px,
+                rgba(0, 238, 255, 0.06) 10px,
+                rgba(0, 238, 255, 0.06) 11px
+            ),
+            repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 12px,
+                rgba(0, 238, 255, 0.05) 12px,
+                rgba(0, 238, 255, 0.05) 13px
+            );
+        -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, #000 55%);
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, #000 55%);
+        opacity: 0.75;
+        animation: iron-dome-scan 5s linear infinite;
+    }
+
+    @keyframes iron-dome-breathe {
+        0%, 100% { opacity: 0.9; filter: brightness(1); }
+        50% { opacity: 1; filter: brightness(1.1); }
+    }
+
+    @keyframes iron-dome-scan {
+        from { opacity: 0.55; }
+        to { opacity: 0.85; }
+    }
+
+    .soc-iron-dome__strikes {
+        position: absolute;
+        bottom: -2px;
+        left: 50%;
+        width: 380px;
+        height: 215px;
+        margin-left: -190px;
+    }
+
+    .soc-dome-strike {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        width: 6px;
+        height: 0;
+        margin-left: -3px;
+        transform-origin: bottom center;
+        opacity: 0;
+        animation: iron-strike-flight var(--strike-t, 2.6s) ease-in infinite;
+        animation-delay: var(--strike-d, 0s);
+    }
+
+    .soc-dome-strike::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: 5px;
+        height: 102px;
+        margin-left: -2.5px;
+        border-radius: 2px;
+        background: linear-gradient(
+            to top,
+            rgba(255, 240, 180, 1) 0%,
+            rgba(255, 90, 40, 0.95) 18%,
+            rgba(220, 40, 20, 0.65) 55%,
+            transparent 100%
+        );
+        box-shadow: 0 0 14px rgba(255, 100, 50, 0.9);
+        transform-origin: bottom center;
+    }
+
+    .soc-dome-strike::after {
+        content: '';
+        position: absolute;
+        bottom: 125px;
+        left: 50%;
+        width: 32px;
+        height: 32px;
+        margin-left: -16px;
+        border-radius: 50%;
+        background: radial-gradient(
+            circle,
+            rgba(255, 255, 255, 0.95) 0%,
+            rgba(255, 200, 80, 0.55) 30%,
+            rgba(255, 60, 40, 0.3) 55%,
+            transparent 72%
+        );
+        opacity: 0;
+        animation: iron-strike-burst var(--strike-t, 2.6s) ease-in infinite;
+        animation-delay: var(--strike-d, 0s);
+    }
+
+    @keyframes iron-strike-flight {
+        0% {
+            opacity: 0;
+            transform: rotate(var(--strike-a)) translateY(0) scaleY(0.35);
+        }
+        10% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 1;
+            transform: rotate(var(--strike-a)) translateY(-132px) scaleY(1.08);
+        }
+        56% {
+            opacity: 1;
+            filter: brightness(2.4) saturate(1.25);
+        }
+        72% {
+            opacity: 0.25;
+            transform: rotate(var(--strike-a)) translateY(-145px) scaleY(0.55);
+            filter: none;
+        }
+        100% {
+            opacity: 0;
+            transform: rotate(var(--strike-a)) translateY(-158px) scaleY(0.25);
+        }
+    }
+
+    @keyframes iron-strike-burst {
+        0%, 44% {
+            opacity: 0;
+            transform: scale(0.2);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1.2);
+        }
+        68% {
+            opacity: 0;
+            transform: scale(2.2);
+        }
+        100% {
+            opacity: 0;
+        }
     }
 
     .soc-hub {
@@ -944,43 +1140,67 @@
                         <div class="soc-core" title="Asset monitoring">X</div>
                     </div>
                     @if($monitoredAssets->isNotEmpty())
-                        <div class="soc-plat-beams" aria-hidden="true"></div>
                         @php
                             $step = $monitoredCount > 0 ? 360 / $monitoredCount : 0;
                             $platR = $monitoredCount > 6 ? '108px' : '118px';
                             $platDur = $monitoredCount > 4 ? '58s' : '48s';
                         @endphp
-                        <div class="soc-plat-scene">
-                            <div class="soc-plat-stage">
-                                <div class="soc-plat-floor" style="--orbit-dur: {{ $platDur }}; --orbit-r: {{ $platR }};">
-                                    <div class="soc-plat-ring" aria-hidden="true"></div>
-                                    <div class="soc-plat-orbit" role="presentation">
-                                        @foreach($monitoredAssets as $asset)
-                                            @php
-                                                $displayLabel = $asset->ip_address ?: $asset->hostname;
-                                                $angle = $loop->index * $step;
-                                            @endphp
-                                            <div class="soc-plat-slot" style="--a: {{ $angle }}deg;">
-                                                <div class="soc-plat-node">
-                                                    <div class="soc-machine-node{{ !empty($underAttackAssetIds[$asset->id]) ? ' soc-machine-node--attack' : '' }}">
-                                                        <div class="soc-holo-cube-wrap">
-                                                            <div class="soc-iso-cube" title="{{ !empty($underAttackAssetIds[$asset->id]) ? $asset->hostname.' — victime d’attaque (alerte)' : $asset->hostname }}">
-                                                                <div class="soc-iso-face soc-iso-face--top" aria-hidden="true"></div>
-                                                                <div class="soc-iso-face soc-iso-face--right" aria-hidden="true"></div>
-                                                                <div class="soc-iso-face soc-iso-face--front">
-                                                                    <span class="soc-iso-redstrip" aria-hidden="true"></span>
+                        <div class="soc-plat-stack">
+                            <div class="soc-plat-beams" aria-hidden="true"></div>
+                            @if(!empty($showIronDome))
+                                <div class="soc-iron-dome-shell" aria-hidden="true">
+                                    <div class="soc-iron-dome__hemi"></div>
+                                    <div class="soc-iron-dome__mesh"></div>
+                                </div>
+                            @endif
+                            <div class="soc-plat-scene">
+                                <div class="soc-plat-stage">
+                                    <div class="soc-plat-floor" style="--orbit-dur: {{ $platDur }}; --orbit-r: {{ $platR }};">
+                                        <div class="soc-plat-ring" aria-hidden="true"></div>
+                                        <div class="soc-plat-orbit" role="presentation">
+                                            @foreach($monitoredAssets as $asset)
+                                                @php
+                                                    $displayLabel = $asset->ip_address ?: $asset->hostname;
+                                                    $angle = $loop->index * $step;
+                                                @endphp
+                                                <div class="soc-plat-slot" style="--a: {{ $angle }}deg;">
+                                                    <div class="soc-plat-node">
+                                                        <div class="soc-machine-node{{ !empty($underAttackAssetIds[$asset->id]) ? ' soc-machine-node--attack' : '' }}">
+                                                            <div class="soc-holo-cube-wrap">
+                                                                <div class="soc-iso-cube" title="{{ !empty($underAttackAssetIds[$asset->id]) ? $asset->hostname.' — victime d’attaque (alerte)' : $asset->hostname }}">
+                                                                    <div class="soc-iso-face soc-iso-face--top" aria-hidden="true"></div>
+                                                                    <div class="soc-iso-face soc-iso-face--right" aria-hidden="true"></div>
+                                                                    <div class="soc-iso-face soc-iso-face--front">
+                                                                        <span class="soc-iso-redstrip" aria-hidden="true"></span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
+                                                            <div class="soc-holo-pedestal" aria-hidden="true"></div>
+                                                            <div class="soc-holo-ip">{{ $displayLabel }}</div>
                                                         </div>
-                                                        <div class="soc-holo-pedestal" aria-hidden="true"></div>
-                                                        <div class="soc-holo-ip">{{ $displayLabel }}</div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        @endforeach
+                                            @endforeach
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                            @if(!empty($showIronDome))
+                                <div class="soc-iron-dome-fx" role="presentation" aria-hidden="true">
+                                    <div class="soc-iron-dome__strikes">
+                                        <span class="soc-dome-strike" style="--strike-a: -76deg; --strike-d: 0s; --strike-t: 2.45s;"></span>
+                                        <span class="soc-dome-strike" style="--strike-a: -48deg; --strike-d: 0.28s; --strike-t: 2.7s;"></span>
+                                        <span class="soc-dome-strike" style="--strike-a: -22deg; --strike-d: 0.55s; --strike-t: 2.55s;"></span>
+                                        <span class="soc-dome-strike" style="--strike-a: 5deg; --strike-d: 0.12s; --strike-t: 2.85s;"></span>
+                                        <span class="soc-dome-strike" style="--strike-a: 32deg; --strike-d: 0.65s; --strike-t: 2.5s;"></span>
+                                        <span class="soc-dome-strike" style="--strike-a: 58deg; --strike-d: 0.4s; --strike-t: 2.75s;"></span>
+                                        <span class="soc-dome-strike" style="--strike-a: 88deg; --strike-d: 0.82s; --strike-t: 2.6s;"></span>
+                                        <span class="soc-dome-strike" style="--strike-a: 118deg; --strike-d: 0.2s; --strike-t: 2.65s;"></span>
+                                        <span class="soc-dome-strike" style="--strike-a: -105deg; --strike-d: 0.5s; --strike-t: 2.8s;"></span>
+                                        <span class="soc-dome-strike" style="--strike-a: 142deg; --strike-d: 0.95s; --strike-t: 2.52s;"></span>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     @endif
                 </div>
@@ -988,6 +1208,9 @@
                     <h2>Asset Monitoring</h2>
                     @if($monitoredCount > 0)
                         <p style="max-width: 320px;"><strong style="color:#7dd3fc;">{{ $monitoredCount }}</strong> machine(s) sur la plateforme de surveillance — flux actif vers le hub.</p>
+                        @if(!empty($showIronDome))
+                            <p style="max-width: 320px; margin: -6px auto 10px; font-size: 0.72rem; color: #22d3ee;">Dôme de fer actif — interceptions sur le bouclier.</p>
+                        @endif
                         <a href="{{ route('monitor.configure') }}" class="soc-header__btn">Modifier la sélection</a>
                     @else
                         <p>La protection des actifs critiques n’est pas activée. Activez-la pour renforcer la surveillance.</p>
