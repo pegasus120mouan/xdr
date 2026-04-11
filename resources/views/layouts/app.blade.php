@@ -671,7 +671,7 @@
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <span class="sidebar-logo">Athena <span>XDR</span></span>
+            <span class="sidebar-logo">Wara <span>XDR</span></span>
         </div>
 
         <nav class="nav-section">

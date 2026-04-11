@@ -18,140 +18,112 @@
         body {
             font-family: 'Inter', sans-serif;
             min-height: 100vh;
-            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%);
-            display: flex;
-            overflow: hidden;
+            margin: 0;
+            overflow-x: hidden;
+            background: #070b12;
         }
 
-        .left-section {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 60px;
-            position: relative;
+        /* Dégradé de fond : le noir de l’image est « retiré » visuellement via mix-blend-mode: screen sur le lion */
+        .login-bg-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 100% 85% at 50% 45%, rgba(15, 55, 95, 0.55) 0%, rgba(8, 20, 40, 0.92) 42%, #050810 100%),
+                radial-gradient(ellipse 50% 40% at 70% 30%, rgba(0, 180, 255, 0.12) 0%, transparent 55%),
+                linear-gradient(165deg, #0a1528 0%, #060d18 55%, #03060c 100%);
         }
 
-        .brand {
-            position: absolute;
-            top: 40px;
-            left: 60px;
-        }
-
-        .brand h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 2px;
-        }
-
-        .brand h1 span {
-            color: #00d4ff;
-        }
-
-        .brand-subtitle {
-            color: #6b7280;
-            font-size: 0.9rem;
-            margin-top: 5px;
-        }
-
-        .cyber-visual {
-            position: relative;
-            width: 100%;
-            height: 500px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .grid-background {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            perspective: 500px;
-            transform: rotateX(60deg);
-            transform-origin: center bottom;
-        }
-
-        .floating-elements {
-            position: relative;
-            width: 400px;
-            height: 400px;
-        }
-
-        .cube {
-            position: absolute;
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%);
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            border-radius: 8px;
-            box-shadow: 
-                0 0 30px rgba(0, 212, 255, 0.2),
-                inset 0 0 20px rgba(0, 212, 255, 0.1);
-            animation: float 6s ease-in-out infinite;
-        }
-
-        .cube::before {
+        .login-bg-layer::after {
             content: '';
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 30px;
-            height: 30px;
-            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-            border-radius: 4px;
-            opacity: 0.8;
-        }
-
-        .cube:nth-child(1) { top: 50px; left: 50px; animation-delay: 0s; }
-        .cube:nth-child(2) { top: 150px; left: 200px; animation-delay: 1s; }
-        .cube:nth-child(3) { top: 250px; left: 80px; animation-delay: 2s; }
-        .cube:nth-child(4) { top: 180px; left: 300px; animation-delay: 0.5s; }
-
-        .connection-lines {
-            position: absolute;
-            width: 100%;
-            height: 100%;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0, 212, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.04) 1px, transparent 1px);
+            background-size: 56px 56px;
+            opacity: 0.5;
             pointer-events: none;
         }
 
-        .connection-lines svg {
+        .login-lion-wrap {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .login-lion-full {
             width: 100%;
             height: 100%;
+            object-fit: cover;
+            object-position: center center;
+            /* Les pixels noirs laissent apparaître le dégradé dessous */
+            mix-blend-mode: screen;
+            opacity: 0.97;
+            transform: scale(1.04);
+            animation: login-lion-drift 24s ease-in-out infinite;
         }
 
-        .connection-lines line {
-            stroke: rgba(0, 212, 255, 0.3);
-            stroke-width: 1;
-            stroke-dasharray: 5, 5;
-            animation: dash 20s linear infinite;
+        @keyframes login-lion-drift {
+            0%, 100% { transform: scale(1.04) translate(0, 0); }
+            33% { transform: scale(1.06) translate(-0.8%, 0.2%); }
+            66% { transform: scale(1.05) translate(0.6%, -0.4%); }
         }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(5deg); }
+        @media (prefers-reduced-motion: reduce) {
+            .login-lion-full {
+                animation: none !important;
+                transform: scale(1.04);
+            }
         }
 
-        @keyframes dash {
-            to { stroke-dashoffset: -100; }
+        .login-brand {
+            position: fixed;
+            z-index: 10;
+            top: 36px;
+            left: clamp(24px, 4vw, 56px);
+            pointer-events: none;
+        }
+
+        .login-brand h1 {
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 32px rgba(0, 0, 0, 0.75), 0 0 40px rgba(0, 100, 180, 0.25);
+        }
+
+        .login-brand h1 span {
+            color: #00d4ff;
+        }
+
+        .login-brand .brand-subtitle {
+            color: rgba(186, 198, 214, 0.95);
+            font-size: 0.9rem;
+            margin-top: 6px;
+            text-shadow: 0 1px 16px rgba(0, 0, 0, 0.8);
+            max-width: 22rem;
         }
 
         .right-section {
-            width: 480px;
+            position: fixed;
+            z-index: 10;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: min(480px, 100%);
             min-height: 100vh;
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(20px);
+            background: rgba(10, 18, 32, 0.82);
+            backdrop-filter: blur(22px);
+            -webkit-backdrop-filter: blur(22px);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 40px;
-            border-left: 1px solid rgba(0, 212, 255, 0.1);
+            padding: 40px 32px;
+            border-left: 1px solid rgba(0, 212, 255, 0.14);
+            box-shadow: -24px 0 48px rgba(0, 0, 0, 0.35);
         }
 
         .login-container {
@@ -184,7 +156,7 @@
         }
 
         .logo-icon::before {
-            content: 'X';
+            content: 'W';
             font-size: 24px;
             font-weight: 700;
             color: #fff;
@@ -401,7 +373,7 @@
             height: 100%;
             pointer-events: none;
             overflow: hidden;
-            z-index: 0;
+            z-index: 2;
         }
 
         .particle {
@@ -431,52 +403,77 @@
         }
 
         @media (max-width: 1024px) {
-            .left-section {
-                display: none;
-            }
             .right-section {
                 width: 100%;
+                max-width: 100%;
                 border-left: none;
+                position: relative;
+                right: auto;
+                top: auto;
+                bottom: auto;
+                flex: 1;
+                min-height: auto;
+                padding: 48px 24px 40px;
+                box-shadow: none;
+                background: rgba(10, 18, 32, 0.88);
+            }
+
+            body {
+                display: flex;
+                flex-direction: column;
+                min-height: 100vh;
+            }
+
+            .login-brand {
+                position: relative;
+                top: auto;
+                left: auto;
+                padding: 28px 24px 8px;
+                text-align: center;
+            }
+
+            .login-brand .brand-subtitle {
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .login-lion-wrap {
+                position: fixed;
             }
         }
     </style>
 </head>
 <body>
+    <div class="login-bg-layer" aria-hidden="true"></div>
+    <div class="login-lion-wrap" aria-hidden="true">
+        <img
+            class="login-lion-full"
+            src="{{ asset('images/wara-lion.png') }}"
+            width="1920"
+            height="1080"
+            alt=""
+            loading="eager"
+            decoding="async"
+        >
+    </div>
+
     <div class="particles">
         @for ($i = 0; $i < 20; $i++)
             <div class="particle" style="left: {{ rand(0, 100) }}%; animation-delay: {{ rand(0, 15) }}s; animation-duration: {{ rand(10, 20) }}s;"></div>
         @endfor
     </div>
 
-    <div class="left-section">
-        <div class="brand">
-            <h1>Athena <span>XDR</span></h1>
-            <p class="brand-subtitle">Extended Detection & Response Platform</p>
-        </div>
-
-        <div class="cyber-visual">
-            <div class="grid-background"></div>
-            <div class="floating-elements">
-                <div class="cube"></div>
-                <div class="cube"></div>
-                <div class="cube"></div>
-                <div class="cube"></div>
-                <svg class="connection-lines" viewBox="0 0 400 400">
-                    <line x1="90" y1="90" x2="240" y2="190" />
-                    <line x1="240" y1="190" x2="120" y2="290" />
-                    <line x1="120" y1="290" x2="340" y2="220" />
-                    <line x1="340" y1="220" x2="90" y2="90" />
-                </svg>
-            </div>
-        </div>
-    </div>
+    <header class="login-brand">
+        <h1>Wara <span>XDR</span></h1>
+        <p class="brand-subtitle">Extended Detection & Response Platform</p>
+    </header>
 
     <div class="right-section">
         <div class="login-container">
             <div class="login-header">
                 <div class="login-logo">
                     <div class="logo-icon"></div>
-                    <span class="logo-text">APEX</span>
+                    <span class="logo-text">Wara</span>
                 </div>
             </div>
 

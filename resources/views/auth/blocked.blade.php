@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Accès Bloqué - APEX XDR</title>
+    <title>Accès Bloqué - Wara XDR</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -112,7 +112,7 @@
     </style>
 </head>
 <body>
-    <div class="logo">Athena <span>XDR</span></div>
+    <div class="logo">Wara <span>XDR</span></div>
 
     <div class="blocked-container">
         <div class="blocked-icon">🛡️</div>
