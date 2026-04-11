@@ -669,93 +669,103 @@
         margin-left: -3px;
         transform-origin: bottom center;
         opacity: 0;
-        animation: iron-strike-flight var(--strike-t, 2.6s) ease-in infinite;
+        animation: iron-strike-flight var(--strike-t, 2.6s) cubic-bezier(0.33, 0.65, 0.28, 0.99) infinite;
         animation-delay: var(--strike-d, 0s);
     }
 
+    /* Tête de charge vers le haut (entre dans le dôme), traînée vers l’extérieur */
     .soc-dome-strike::before {
         content: '';
         position: absolute;
         bottom: 0;
         left: 50%;
         width: 5px;
-        height: 102px;
+        height: 110px;
         margin-left: -2.5px;
         border-radius: 2px;
         background: linear-gradient(
             to top,
-            rgba(255, 240, 180, 1) 0%,
-            rgba(255, 90, 40, 0.95) 18%,
-            rgba(220, 40, 20, 0.65) 55%,
-            transparent 100%
+            rgba(80, 20, 10, 0.5) 0%,
+            rgba(220, 50, 25, 0.75) 35%,
+            rgba(255, 120, 50, 0.95) 72%,
+            rgba(255, 255, 220, 1) 92%,
+            rgba(255, 255, 255, 1) 100%
         );
-        box-shadow: 0 0 14px rgba(255, 100, 50, 0.9);
+        box-shadow: 0 0 14px rgba(255, 100, 50, 0.85);
         transform-origin: bottom center;
     }
 
     .soc-dome-strike::after {
         content: '';
         position: absolute;
-        bottom: 125px;
+        bottom: 100px;
         left: 50%;
-        width: 32px;
-        height: 32px;
-        margin-left: -16px;
+        width: 36px;
+        height: 36px;
+        margin-left: -18px;
         border-radius: 50%;
         background: radial-gradient(
             circle,
             rgba(255, 255, 255, 0.95) 0%,
-            rgba(255, 200, 80, 0.55) 30%,
-            rgba(255, 60, 40, 0.3) 55%,
+            rgba(0, 230, 255, 0.35) 38%,
+            rgba(255, 80, 40, 0.25) 58%,
             transparent 72%
         );
         opacity: 0;
-        animation: iron-strike-burst var(--strike-t, 2.6s) ease-in infinite;
+        animation: iron-strike-burst var(--strike-t, 2.6s) cubic-bezier(0.4, 0, 0.2, 1) infinite;
         animation-delay: var(--strike-d, 0s);
     }
 
+    /* Entrée depuis l’extérieur (translateY positif) → impact sur la calotte → absorption (pas de sortie vers le haut) */
     @keyframes iron-strike-flight {
         0% {
             opacity: 0;
-            transform: rotate(var(--strike-a)) translateY(0) scaleY(0.35);
+            transform: rotate(var(--strike-a)) translateY(58px) scaleY(0.5);
         }
-        10% {
+        6% {
             opacity: 1;
         }
-        50% {
+        38% {
             opacity: 1;
-            transform: rotate(var(--strike-a)) translateY(-132px) scaleY(1.08);
+            transform: rotate(var(--strike-a)) translateY(-35px) scaleY(1);
         }
-        56% {
+        48% {
             opacity: 1;
-            filter: brightness(2.4) saturate(1.25);
+            transform: rotate(var(--strike-a)) translateY(-100px) scaleY(1.05);
+            filter: brightness(2.2) saturate(1.2);
         }
-        72% {
-            opacity: 0.25;
-            transform: rotate(var(--strike-a)) translateY(-145px) scaleY(0.55);
+        54% {
+            opacity: 0.9;
+            transform: rotate(var(--strike-a)) translateY(-100px) scaleY(0.35);
+            filter: brightness(1.6);
+        }
+        70% {
+            opacity: 0.35;
+            transform: rotate(var(--strike-a)) translateY(-96px) scaleY(0.2);
             filter: none;
         }
         100% {
             opacity: 0;
-            transform: rotate(var(--strike-a)) translateY(-158px) scaleY(0.25);
+            transform: rotate(var(--strike-a)) translateY(-92px) scaleY(0.12);
         }
     }
 
     @keyframes iron-strike-burst {
-        0%, 44% {
+        0%, 40% {
             opacity: 0;
-            transform: scale(0.2);
+            transform: scale(0.15);
         }
-        50% {
+        46% {
             opacity: 1;
-            transform: scale(1.2);
+            transform: scale(1);
         }
-        68% {
-            opacity: 0;
-            transform: scale(2.2);
+        58% {
+            opacity: 0.4;
+            transform: scale(1.35);
         }
         100% {
             opacity: 0;
+            transform: scale(1.6);
         }
     }
 
