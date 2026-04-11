@@ -413,9 +413,14 @@
 
                     <div class="script-block">
                         <pre id="installScript">Please enter the server address above to generate the installation script.</pre>
-                        <button class="copy-script-btn" onclick="copyScript()" id="copyScriptBtn" disabled>
-                            <span class="copy-icon">📋</span> Copy
-                        </button>
+                        <div class="script-actions">
+                            <button class="copy-script-btn" onclick="copyScript()" id="copyScriptBtn" disabled>
+                                <span class="copy-icon">📋</span> Copy
+                            </button>
+                            <button class="copy-script-btn download-script-btn" onclick="downloadInstallerScript()" id="downloadScriptBtn" disabled>
+                                <span class="copy-icon">⬇️</span> Download script
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1127,9 +1132,6 @@
 .script-block pre .value { color: #22c55e; }
 
 .copy-script-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
     padding: 6px 12px;
     background: #374151;
     border: none;
@@ -1156,6 +1158,18 @@
 .copy-script-btn.copied {
     background: #22c55e;
     color: #fff;
+}
+
+.script-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 6px;
+}
+
+.download-script-btn {
+    background: #1e40af;
 }
 </style>
 
@@ -1204,6 +1218,7 @@ function updateScript() {
     
     const scriptEl = document.getElementById('installScript');
     const copyBtn = document.getElementById('copyScriptBtn');
+    const downloadBtn = document.getElementById('downloadScriptBtn');
     const winHint = document.getElementById('windowsAdminHint');
     if (winHint) {
         winHint.style.display = osType === 'windows' ? 'flex' : 'none';
@@ -1218,10 +1233,12 @@ function updateScript() {
     if (!serverAddress) {
         scriptEl.textContent = 'Please enter the server address above to generate the installation script.';
         copyBtn.disabled = true;
+        downloadBtn.disabled = true;
         return;
     }
     
     copyBtn.disabled = false;
+    downloadBtn.disabled = false;
     
     if (osType === 'linux') {
         const linuxVersion = document.querySelector('input[name="linux_version"]:checked')?.value || 'ubuntu15';
@@ -1272,6 +1289,25 @@ function copyScript() {
             copyBtn.classList.remove('copied');
         }, 2000);
     });
+}
+
+function downloadInstallerScript() {
+    const osType = document.querySelector('input[name="os_type"]:checked').value;
+    const serverAddress = document.getElementById('serverAddress').value.trim();
+    if (!serverAddress) return;
+
+    const normalizedHost = serverAddress.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    const fileName = osType === 'windows' ? 'athena-agent.ps1' : 'athena-xdr-agent.sh';
+    const scriptPath = osType === 'windows' ? 'install.ps1' : 'install.sh';
+    const url = `https://${normalizedHost}/api/agent/${scriptPath}`;
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 // Tree toggle functionality

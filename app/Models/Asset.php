@@ -18,6 +18,7 @@ class Asset extends Model
         'status',
         'risk_level',
         'is_critical',
+        'is_monitored',
         'agent_version',
         'last_seen',
         'agent_installed_at',
@@ -27,6 +28,7 @@ class Asset extends Model
 
     protected $casts = [
         'is_critical' => 'boolean',
+        'is_monitored' => 'boolean',
         'last_seen' => 'datetime',
         'agent_installed_at' => 'datetime',
         'tags' => 'array',

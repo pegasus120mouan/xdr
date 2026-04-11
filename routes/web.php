@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DetectionController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\AgentController;
+use App\Http\Controllers\MonitorController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -18,6 +19,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
         return view('dashboard');
     })->name('dashboard');
+
+    Route::get('/monitor/monitors', [MonitorController::class, 'monitors'])->name('monitor.monitors');
+
+    Route::get('/monitor/configure', [MonitorController::class, 'configure'])->name('monitor.configure');
+    Route::post('/monitor/configure', [MonitorController::class, 'saveConfigure'])->name('monitor.configure.save');
 
     // Detection Rules
     Route::get('/detection/rules', [DetectionController::class, 'rules'])->name('detection.rules');
