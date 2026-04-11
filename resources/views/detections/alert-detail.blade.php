@@ -78,31 +78,39 @@
 
         <!-- Source Info -->
         <div class="detail-card">
-            <h3 class="card-title">🎯 Source Information</h3>
+            <h3 class="card-title">🎯 Origine de la connexion</h3>
             <div class="source-details">
                 <div class="source-item">
-                    <span class="source-label">Source IP</span>
-                    <span class="source-value ip">{{ $alert->source_ip ?? 'N/A' }}</span>
+                    <span class="source-label">IP distante (origine)</span>
+                    <span class="source-value ip">{{ $alert->source_ip ?? '—' }}</span>
+                </div>
+                @if(!$alert->source_ip)
+                    <p class="source-hint">Aucune IP distante n’a été détectée dans la ligne de log (session locale, sudo sur la machine, ou format non reconnu). Consultez le message brut ci-dessous ou les données brutes.</p>
+                @endif
+                <div class="source-item">
+                    <span class="source-label">IP de l’actif surveillé</span>
+                    <span class="source-value ip">{{ $alert->target_ip ?? '—' }}</span>
                 </div>
                 <div class="source-item">
-                    <span class="source-label">Target IP</span>
-                    <span class="source-value">{{ $alert->target_ip ?? 'N/A' }}</span>
+                    <span class="source-label">Utilisateur (log)</span>
+                    <span class="source-value">{{ $alert->source_user ?? '—' }}</span>
                 </div>
                 <div class="source-item">
-                    <span class="source-label">Source User</span>
-                    <span class="source-value">{{ $alert->source_user ?? 'N/A' }}</span>
+                    <span class="source-label">Utilisateur cible</span>
+                    <span class="source-value">{{ $alert->target_user ?? '—' }}</span>
                 </div>
                 <div class="source-item">
-                    <span class="source-label">Target User</span>
-                    <span class="source-value">{{ $alert->target_user ?? 'N/A' }}</span>
-                </div>
-                <div class="source-item">
-                    <span class="source-label">Affected Asset</span>
-                    <span class="source-value">{{ $alert->affected_asset ?? 'N/A' }}</span>
+                    <span class="source-label">Actif concerné</span>
+                    <span class="source-value">{{ $alert->affected_asset ?? '—' }}</span>
                 </div>
             </div>
 
-            @if($alert->source_ip)
+            @php
+                $canBlockRemoteIp = $alert->source_ip
+                    && $alert->target_ip
+                    && $alert->source_ip !== $alert->target_ip;
+            @endphp
+            @if($canBlockRemoteIp)
             <div class="ip-actions">
                 <form action="{{ route('detection.blocked-ips.block') }}" method="POST">
                     @csrf
@@ -114,6 +122,8 @@
                     </button>
                 </form>
             </div>
+            @elseif($alert->source_ip && !$alert->target_ip)
+            <p class="source-hint">Blocage IP désactivé : cette alerte ne contient pas d’IP d’actif distincte (données anciennes ou incomplètes). Vérifiez avant de bloquer manuellement.</p>
             @endif
         </div>
 
@@ -382,6 +392,17 @@
 .source-value.ip {
     font-family: monospace;
     color: #00d4ff;
+}
+
+.source-hint {
+    margin: 0 0 8px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #94a3b8;
+    background: rgba(30, 41, 59, 0.5);
+    border-radius: 6px;
+    border-left: 3px solid #64748b;
 }
 
 .ip-actions {

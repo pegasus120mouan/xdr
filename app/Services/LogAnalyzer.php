@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Agent;
-use App\Models\AgentLog;
 use App\Models\DetectionRule;
 use App\Models\SecurityAlert;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 class LogAnalyzer
 {
     protected array $rules = [];
+
     protected array $ruleCache = [];
 
     public function __construct()
@@ -60,10 +60,10 @@ class LogAnalyzer
     protected function matchesRule(array $rule, string $message, string $logType, Agent $agent): bool
     {
         $conditions = $rule['conditions'] ?? [];
-        
+
         // Check log type filter if specified
-        if (!empty($conditions['log_types'])) {
-            if (!in_array($logType, $conditions['log_types'])) {
+        if (! empty($conditions['log_types'])) {
+            if (! in_array($logType, $conditions['log_types'])) {
                 return false;
             }
         }
@@ -112,28 +112,38 @@ class LogAnalyzer
      */
     protected function createAlert(Agent $agent, array $rule, array $log): ?SecurityAlert
     {
-        // Check for duplicate alerts (same rule, same agent, within time window)
-        $existingAlert = SecurityAlert::where('detection_rule_id', $rule['id'])
-            ->where('source_ip', $agent->ip_address)
+        $message = $log['message'] ?? '';
+        $remoteIp = $this->extractRemoteIp($message);
+        $hostIp = $agent->ip_address;
+
+        // Déduplication : même règle, même actif, même origine distante (ou toutes deux locales)
+        $existingAlert = SecurityAlert::query()
+            ->where('detection_rule_id', $rule['id'])
+            ->where('affected_asset', $agent->hostname)
             ->where('status', '!=', 'resolved')
             ->where('created_at', '>=', now()->subMinutes(5))
+            ->when($remoteIp !== null, fn ($q) => $q->where('source_ip', $remoteIp))
+            ->when($remoteIp === null, fn ($q) => $q->whereNull('source_ip'))
             ->first();
 
         if ($existingAlert) {
             // Update existing alert count
             $existingAlert->increment('event_count');
             $existingAlert->update(['last_seen' => now()]);
+
             return null;
         }
 
-        // Create new alert
+        // source_ip = IP distante (origine de la connexion) si présente dans le log ; sinon null (événement local)
+        // target_ip = actif surveillé (serveur / agent)
         $alert = SecurityAlert::create([
             'detection_rule_id' => $rule['id'],
-            'title' => $rule['name'] . ' - ' . $agent->hostname,
-            'description' => $this->buildAlertDescription($rule, $log, $agent),
+            'title' => $rule['name'].' - '.$agent->hostname,
+            'description' => $this->buildAlertDescription($rule, $log, $agent, $remoteIp, $hostIp),
             'severity' => $rule['severity'],
-            'source_ip' => $agent->ip_address,
-            'source_user' => $this->extractUsername($log['message'] ?? ''),
+            'source_ip' => $remoteIp,
+            'target_ip' => $hostIp,
+            'source_user' => $this->extractUsername($message),
             'affected_asset' => $agent->hostname,
             'raw_data' => $log,
             'status' => 'new',
@@ -154,14 +164,41 @@ class LogAnalyzer
     /**
      * Build alert description
      */
-    protected function buildAlertDescription(array $rule, array $log, Agent $agent): string
+    protected function buildAlertDescription(array $rule, array $log, Agent $agent, ?string $remoteIp, ?string $hostIp): string
     {
         $description = $rule['description'] ?? 'Security event detected';
-        $description .= "\n\n**Source:** {$agent->hostname} ({$agent->ip_address})";
-        $description .= "\n**Log Type:** " . ($log['log_type'] ?? 'unknown');
-        $description .= "\n**Message:** " . substr($log['message'] ?? '', 0, 500);
-        
+        $description .= "\n\n**Monitored host:** {$agent->hostname}".($hostIp ? " ({$hostIp})" : '');
+        if ($remoteIp) {
+            $description .= "\n**Remote IP (connection source):** {$remoteIp}";
+        } else {
+            $description .= "\n**Remote IP:** not found in log line (local session or unsupported format).";
+        }
+        $description .= "\n**Log Type:** ".($log['log_type'] ?? 'unknown');
+        $description .= "\n**Message:** ".substr($log['message'] ?? '', 0, 500);
+
         return $description;
+    }
+
+    /**
+     * Extract remote IPv4 from common Linux auth / SSH log lines.
+     */
+    protected function extractRemoteIp(string $message): ?string
+    {
+        $patterns = [
+            '/\bfrom\s+(\d{1,3}(?:\.\d{1,3}){3})\s+port\s+\d+/i',
+            '/\brhost=(\d{1,3}(?:\.\d{1,3}){3})\b/i',
+            '/\b(?:SRC|src)=(\d{1,3}(?:\.\d{1,3}){3})\b/',
+            '/Connection (?:closed )?by(?: authenticating)? user \S+\s+(\d{1,3}(?:\.\d{1,3}){3})\b/i',
+            '/\bfrom\s+(\d{1,3}(?:\.\d{1,3}){3})\b/i',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $message, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -210,7 +247,7 @@ class LogAnalyzer
     {
         return [
             'total_rules' => count($this->rules),
-            'active_rules' => count(array_filter($this->rules, fn($r) => $r['is_active'])),
+            'active_rules' => count(array_filter($this->rules, fn ($r) => $r['is_active'])),
             'alerts_today' => SecurityAlert::whereDate('created_at', today())->count(),
             'alerts_new' => SecurityAlert::where('status', 'new')->count(),
         ];
