@@ -187,6 +187,32 @@
         height: 100%;
     }
 
+    .amap-svg .amap-world-bg {
+        opacity: 0.38;
+        filter: brightness(0.55) contrast(1.15) saturate(0.35);
+    }
+
+    .amap-map-credit {
+        position: absolute;
+        right: 14px;
+        bottom: 10px;
+        margin: 0;
+        font-size: 0.62rem;
+        color: #475569;
+        z-index: 4;
+        pointer-events: auto;
+    }
+
+    .amap-map-credit a {
+        color: #64748b;
+        text-decoration: none;
+    }
+
+    .amap-map-credit a:hover {
+        color: #94a3b8;
+        text-decoration: underline;
+    }
+
     .amap-arc {
         fill: none;
         stroke-linecap: round;
@@ -358,13 +384,23 @@
 
         <div class="amap-panel amap-map-wrap">
             <div class="amap-map-inner">
-                <svg class="amap-svg" viewBox="0 0 {{ $mapSize['w'] }} {{ $mapSize['h'] }}" preserveAspectRatio="xMidYMid meet" aria-label="Carte des flux d’attaque">
+                <svg class="amap-svg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {{ $mapSize['w'] }} {{ $mapSize['h'] }}" preserveAspectRatio="xMidYMid meet" aria-label="Carte des flux d’attaque">
                     <defs>
                         <filter id="amap-glow" x="-50%" y="-50%" width="200%" height="200%">
                             <feGaussianBlur stdDeviation="1.2" result="b" />
                             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
                         </filter>
                     </defs>
+                    <image
+                        class="amap-world-bg"
+                        href="{{ asset('images/world-map.svg') }}"
+                        xlink:href="{{ asset('images/world-map.svg') }}"
+                        x="0"
+                        y="0"
+                        width="{{ $mapSize['w'] }}"
+                        height="{{ $mapSize['h'] }}"
+                        preserveAspectRatio="xMidYMid slice"
+                    />
                     @foreach($arcs as $arc)
                         <path class="amap-arc amap-arc--{{ $arc['severity'] ?? 'medium' }}" d="{{ $arc['path'] }}" filter="url(#amap-glow)" />
                     @endforeach
@@ -373,6 +409,10 @@
                     <text class="amap-home-label" x="{{ $homeXY['x'] }}" y="{{ $homeXY['y'] + 22 }}" text-anchor="middle">{{ \Illuminate\Support\Str::limit($home['label'], 18) }}</text>
                 </svg>
             </div>
+            <p class="amap-map-credit">
+                Fond carte :
+                <a href="https://commons.wikimedia.org/wiki/File:World_map_-_low_resolution.svg" target="_blank" rel="noopener noreferrer">Wikimedia Commons</a>
+            </p>
         </div>
 
         <div class="amap-panel">
