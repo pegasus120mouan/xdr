@@ -28,7 +28,7 @@
             position: fixed;
             left: 0;
             top: 0;
-            width: 220px;
+            width: 300px;
             height: 100vh;
             background: #1a1f2e;
             border-right: 1px solid #2d3748;
@@ -37,21 +37,28 @@
         }
 
         .sidebar-header {
-            padding: 16px 20px;
+            padding: 20px 18px 24px;
             border-bottom: 1px solid #2d3748;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 10px;
         }
 
-        .sidebar-logo {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #fff;
+        .sidebar-logo-link {
+            display: block;
+            line-height: 0;
+            text-decoration: none;
         }
 
-        .sidebar-logo span {
-            color: #00d4ff;
+        .sidebar-logo-img {
+            display: block;
+            max-width: 100%;
+            width: auto;
+            height: auto;
+            max-height: 232px;
+            object-fit: contain;
+            object-position: center center;
         }
 
         .nav-section {
@@ -118,7 +125,7 @@
 
         /* Main Content */
         .main-content {
-            margin-left: 220px;
+            margin-left: 300px;
             min-height: 100vh;
         }
 
@@ -671,7 +678,9 @@
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <span class="sidebar-logo">Wara <span>XDR</span></span>
+            <a href="{{ route('dashboard') }}" class="sidebar-logo-link" title="Wara XDR">
+                <img src="{{ asset('images/logo.png') }}" alt="Wara XDR" class="sidebar-logo-img" width="1120" height="232" decoding="async">
+            </a>
         </div>
 
         <nav class="nav-section">

@@ -87,16 +87,15 @@
             pointer-events: none;
         }
 
-        .login-brand h1 {
-            font-size: clamp(1.75rem, 4vw, 2.5rem);
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 2px;
-            text-shadow: 0 2px 32px rgba(0, 0, 0, 0.75), 0 0 40px rgba(0, 100, 180, 0.25);
-        }
-
-        .login-brand h1 span {
-            color: #00d4ff;
+        .login-brand-logo {
+            display: block;
+            max-width: min(2240px, 96vw);
+            width: auto;
+            height: auto;
+            max-height: min(480px, 55vh);
+            object-fit: contain;
+            object-position: left center;
+            filter: drop-shadow(0 2px 28px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 24px rgba(0, 100, 180, 0.2));
         }
 
         .login-brand .brand-subtitle {
@@ -113,7 +112,7 @@
             right: 0;
             top: 0;
             bottom: 0;
-            width: min(480px, 100%);
+            width: min(560px, 100%);
             min-height: 100vh;
             background: rgba(10, 18, 32, 0.82);
             backdrop-filter: blur(22px);
@@ -128,7 +127,7 @@
 
         .login-container {
             width: 100%;
-            max-width: 380px;
+            max-width: 480px;
         }
 
         .login-header {
@@ -140,33 +139,16 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
             margin-bottom: 10px;
         }
 
-        .logo-icon {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #00d4ff 0%, #0066cc 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-
-        .logo-icon::before {
-            content: 'W';
-            font-size: 24px;
-            font-weight: 700;
-            color: #fff;
-        }
-
-        .logo-text {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 1px;
+        .login-form-logo {
+            display: block;
+            max-height: min(352px, 48vh);
+            max-width: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
         }
 
         .form-group {
@@ -432,6 +414,12 @@
                 text-align: center;
             }
 
+            .login-brand-logo {
+                margin-left: auto;
+                margin-right: auto;
+                object-position: center center;
+            }
+
             .login-brand .brand-subtitle {
                 margin-left: auto;
                 margin-right: auto;
@@ -464,7 +452,14 @@
     </div>
 
     <header class="login-brand">
-        <h1>Wara <span>XDR</span></h1>
+        <img
+            class="login-brand-logo"
+            src="{{ asset('images/logo.png') }}"
+            alt="Wara XDR"
+            width="560"
+            height="120"
+            decoding="async"
+        >
         <p class="brand-subtitle">Extended Detection & Response Platform</p>
     </header>
 
@@ -472,8 +467,14 @@
         <div class="login-container">
             <div class="login-header">
                 <div class="login-logo">
-                    <div class="logo-icon"></div>
-                    <span class="logo-text">Wara</span>
+                    <img
+                        class="login-form-logo"
+                        src="{{ asset('images/logo.png') }}"
+                        alt="Wara XDR"
+                        width="1360"
+                        height="352"
+                        decoding="async"
+                    >
                 </div>
             </div>
 

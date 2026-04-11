@@ -99,20 +99,25 @@
 
         .logo {
             position: absolute;
-            top: 40px;
-            left: 40px;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #fff;
+            top: 36px;
+            left: 36px;
+            line-height: 0;
         }
 
-        .logo span {
-            color: #00d4ff;
+        .logo-img {
+            display: block;
+            max-height: min(320px, 50vh);
+            max-width: min(1600px, 92vw);
+            width: auto;
+            height: auto;
+            object-fit: contain;
         }
     </style>
 </head>
 <body>
-    <div class="logo">Wara <span>XDR</span></div>
+    <div class="logo">
+        <img src="{{ asset('images/logo.png') }}" alt="Wara XDR" class="logo-img" width="1600" height="320" decoding="async">
+    </div>
 
     <div class="blocked-container">
         <div class="blocked-icon">🛡️</div>
