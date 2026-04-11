@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Asset;
+use App\Models\SecurityAlert;
 use App\Models\TenantGroup;
 use Illuminate\Http\Request;
 
@@ -15,9 +16,39 @@ class MonitorController extends Controller
             ->orderBy('hostname')
             ->get(['id', 'hostname', 'ip_address', 'status']);
 
+        $alerts = SecurityAlert::query()
+            ->whereIn('status', ['new', 'investigating', 'escalated'])
+            ->get(['target_ip', 'affected_asset']);
+
+        $ipSet = [];
+        $hostSet = [];
+        foreach ($alerts as $alert) {
+            if ($alert->target_ip) {
+                $ipSet[strtolower(trim($alert->target_ip))] = true;
+            }
+            if ($alert->affected_asset) {
+                $hostSet[strtolower(trim($alert->affected_asset))] = true;
+            }
+        }
+
+        $underAttackAssetIds = [];
+        foreach ($monitoredAssets as $asset) {
+            $victim = $asset->status === 'alerting';
+            if (! $victim && $asset->ip_address) {
+                $victim = isset($ipSet[strtolower(trim($asset->ip_address))]);
+            }
+            if (! $victim) {
+                $victim = isset($hostSet[strtolower(trim($asset->hostname))]);
+            }
+            if ($victim) {
+                $underAttackAssetIds[$asset->id] = true;
+            }
+        }
+
         return view('monitors', [
             'monitoredAssets' => $monitoredAssets,
             'monitoredCount' => $monitoredAssets->count(),
+            'underAttackAssetIds' => $underAttackAssetIds,
         ]);
     }
 

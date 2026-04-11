@@ -492,6 +492,77 @@
             0 0 14px rgba(0, 204, 255, 0.08);
     }
 
+    /* Machine victime d’attaque (alerte ouverte ou statut alerting) */
+    .soc-machine-node--attack {
+        filter: drop-shadow(0 0 14px rgba(255, 51, 0, 0.55)) drop-shadow(0 8px 16px rgba(80, 0, 0, 0.5));
+    }
+
+    .soc-machine-node--attack .soc-iso-face {
+        border-color: rgba(255, 100, 80, 0.65);
+    }
+
+    .soc-machine-node--attack .soc-iso-face--front {
+        background: linear-gradient(160deg, #cc2200 0%, #881100 42%, #440808 100%);
+        box-shadow: inset 0 0 16px rgba(255, 80, 40, 0.35);
+    }
+
+    .soc-machine-node--attack .soc-iso-face--right {
+        background: linear-gradient(180deg, #661008 0%, #2a0504 100%);
+        box-shadow: inset -4px 0 8px rgba(0, 0, 0, 0.45);
+    }
+
+    .soc-machine-node--attack .soc-iso-face--top {
+        background: linear-gradient(145deg, #ff3300 0%, #aa1100 55%, #550808 100%);
+        box-shadow: inset 0 4px 10px rgba(255, 200, 120, 0.15);
+    }
+
+    .soc-machine-node--attack .soc-iso-redstrip {
+        background: linear-gradient(
+            90deg,
+            transparent 0%,
+            #ff6633 15%,
+            #ffcc88 50%,
+            #ff6633 85%,
+            transparent 100%
+        );
+        box-shadow:
+            0 0 12px #ff3300,
+            0 0 24px rgba(255, 80, 40, 0.8);
+        animation: soc-redstrip-pulse-attack 1.2s ease-in-out infinite;
+    }
+
+    @keyframes soc-redstrip-pulse-attack {
+        0%, 100% { opacity: 1; filter: brightness(1.1); }
+        50% { opacity: 1; filter: brightness(1.35); }
+    }
+
+    .soc-machine-node--attack .soc-holo-pedestal {
+        background: radial-gradient(
+            ellipse at center,
+            rgba(255, 80, 30, 0.95) 0%,
+            rgba(180, 20, 0, 0.55) 45%,
+            transparent 72%
+        );
+        box-shadow:
+            0 0 16px #ff2200,
+            0 0 32px rgba(255, 51, 0, 0.65);
+        animation: soc-pedestal-pulse-attack 1.4s ease-in-out infinite;
+    }
+
+    @keyframes soc-pedestal-pulse-attack {
+        0%, 100% { box-shadow: 0 0 14px #ff2200, 0 0 28px rgba(255, 51, 0, 0.55); }
+        50% { box-shadow: 0 0 22px #ff4400, 0 0 40px rgba(255, 100, 50, 0.75); }
+    }
+
+    .soc-machine-node--attack .soc-holo-ip {
+        color: #fecaca;
+        background: rgba(60, 10, 10, 0.88);
+        border-color: rgba(255, 80, 60, 0.55);
+        box-shadow:
+            0 2px 12px rgba(0, 0, 0, 0.5),
+            0 0 18px rgba(255, 51, 0, 0.35);
+    }
+
     .soc-hub {
         position: relative;
         width: min(100%, 380px);
@@ -891,9 +962,9 @@
                                             @endphp
                                             <div class="soc-plat-slot" style="--a: {{ $angle }}deg;">
                                                 <div class="soc-plat-node">
-                                                    <div class="soc-machine-node">
+                                                    <div class="soc-machine-node{{ !empty($underAttackAssetIds[$asset->id]) ? ' soc-machine-node--attack' : '' }}">
                                                         <div class="soc-holo-cube-wrap">
-                                                            <div class="soc-iso-cube" title="{{ $asset->hostname }}">
+                                                            <div class="soc-iso-cube" title="{{ !empty($underAttackAssetIds[$asset->id]) ? $asset->hostname.' — victime d’attaque (alerte)' : $asset->hostname }}">
                                                                 <div class="soc-iso-face soc-iso-face--top" aria-hidden="true"></div>
                                                                 <div class="soc-iso-face soc-iso-face--right" aria-hidden="true"></div>
                                                                 <div class="soc-iso-face soc-iso-face--front">
