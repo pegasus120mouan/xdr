@@ -66,6 +66,14 @@ class DetectionController extends Controller
             $query->whereHas('rule', fn($q) => $q->where('category', $request->category));
         }
 
+        if ($request->filled('target_ip')) {
+            $query->where('target_ip', $request->target_ip);
+        }
+
+        if ($request->filled('affected')) {
+            $query->where('affected_asset', 'like', '%'.$request->affected.'%');
+        }
+
         $alerts = $query->paginate(20);
         $statuses = SecurityAlert::getStatuses();
         $severities = DetectionRule::getSeverities();

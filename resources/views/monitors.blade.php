@@ -14,6 +14,188 @@
         background: linear-gradient(180deg, #050d1a 0%, #0a1528 40%, #060f1c 100%);
         min-height: 100vh;
         box-sizing: border-box;
+        position: relative;
+        isolation: isolate;
+    }
+
+    .soc-page::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.045;
+        background-image: repeating-radial-gradient(
+            circle at 20% 30%,
+            rgba(255, 255, 255, 0.09) 0,
+            rgba(255, 255, 255, 0.09) 0.5px,
+            transparent 0.5px,
+            transparent 4px
+        );
+        mix-blend-mode: overlay;
+    }
+
+    .soc-page::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.55);
+    }
+
+    .soc-page > * {
+        position: relative;
+        z-index: 1;
+    }
+
+    @keyframes soc-col-in {
+        from {
+            opacity: 0;
+            transform: translateY(14px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .soc-col {
+        animation: soc-col-in 0.55s ease backwards;
+    }
+
+    .soc-col:nth-child(1) { animation-delay: 0.06s; }
+    .soc-col:nth-child(2) { animation-delay: 0.18s; }
+    .soc-col:nth-child(3) { animation-delay: 0.3s; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .soc-page::before,
+        .soc-page::after {
+            display: none;
+        }
+
+        .soc-col {
+            animation: none !important;
+        }
+
+        .soc-page .soc-ring,
+        .soc-page .soc-core,
+        .soc-page .soc-float-label,
+        .soc-page .soc-plat-orbit,
+        .soc-page .soc-dome-strike,
+        .soc-page .soc-iron-dome__hemi,
+        .soc-page .soc-iron-dome__mesh,
+        .soc-page .soc-plat-ring,
+        .soc-page .soc-contain-orbit,
+        .soc-page .soc-contain-orbit-inner,
+        .soc-page .soc-shield,
+        .soc-page .soc-plat-scene::before,
+        .soc-page .soc-plat-ring::after {
+            animation: none !important;
+        }
+
+        .soc-shield--warn {
+            animation: none !important;
+        }
+    }
+
+    .soc-num {
+        font-variant-numeric: tabular-nums;
+        transition: color 0.35s ease;
+    }
+
+    .soc-stat-value {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: #f1f5f9;
+    }
+
+    .soc-secure-label--warn {
+        color: #fb923c !important;
+    }
+
+    .soc-shield--warn {
+        border-color: #fb923c !important;
+        background: radial-gradient(circle at 30% 30%, rgba(251, 146, 60, 0.45), rgba(120, 50, 20, 0.85)) !important;
+        box-shadow: 0 0 24px rgba(251, 146, 60, 0.4) !important;
+        animation: shield-warn-pulse 2.2s ease-in-out infinite;
+    }
+
+    @keyframes shield-warn-pulse {
+        0%, 100% { filter: brightness(1); }
+        50% { filter: brightness(1.12); }
+    }
+
+    .soc-hub-legend {
+        text-align: center;
+        font-size: 0.7rem;
+        color: #64748b;
+        margin-top: 10px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .soc-hub-legend strong {
+        color: #7dd3fc;
+        font-weight: 600;
+    }
+
+    .soc-machine-wrap {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .soc-machine-link {
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        border-radius: 6px;
+        transition: transform 0.2s ease, filter 0.2s ease;
+    }
+
+    .soc-machine-link:hover {
+        transform: scale(1.06);
+        filter: brightness(1.08);
+    }
+
+    .soc-machine-link:focus-visible {
+        outline: 2px solid #00ccff;
+        outline-offset: 3px;
+    }
+
+    .soc-machine-tip {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 6px);
+        transform: translateX(-50%);
+        min-width: 140px;
+        max-width: 220px;
+        padding: 6px 8px;
+        font-size: 0.62rem;
+        line-height: 1.35;
+        color: #e2e8f0;
+        background: rgba(0, 15, 40, 0.92);
+        border: 1px solid rgba(0, 204, 255, 0.35);
+        border-radius: 4px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.22s ease;
+        z-index: 30;
+        text-align: center;
+    }
+
+    .soc-machine-wrap:hover .soc-machine-tip {
+        opacity: 1;
+    }
+
+    .soc-machine-tip__more {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.58rem;
+        color: #22d3ee;
     }
 
     .soc-header {
@@ -317,6 +499,31 @@
             inset 0 -20px 50px rgba(0, 0, 51, 0.4);
         animation: soc-plat-glass-pulse 3.5s ease-in-out infinite;
         pointer-events: none;
+        overflow: hidden;
+    }
+
+    .soc-plat-ring::after {
+        content: '';
+        position: absolute;
+        inset: 10%;
+        border-radius: 50%;
+        background: linear-gradient(
+            105deg,
+            transparent 38%,
+            rgba(255, 255, 255, 0.09) 47%,
+            transparent 55%
+        );
+        animation: soc-plat-sheen 9s linear infinite;
+        pointer-events: none;
+    }
+
+    @keyframes soc-plat-sheen {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
     }
 
     @keyframes soc-plat-glass-pulse {
@@ -1063,7 +1270,7 @@
 @section('content')
 <div class="soc-page">
     <header class="soc-header">
-        <div class="soc-header__badge"><strong>624</strong> jours protégés par XDR</div>
+        <div class="soc-header__badge"><strong class="soc-num" data-soc-count="{{ $monitorStats['days_protected'] }}">{{ $monitorStats['days_protected'] }}</strong> jours protégés par XDR</div>
         <h1 class="soc-header__title">Security O&amp;M Monitor</h1>
         <div class="soc-header__meta">
             <span id="soc-clock" data-locale="fr">{{ now()->format('Y.m.d') }} ({{ now()->locale('fr')->translatedFormat('l') }}) {{ now()->format('H:i:s') }}</span>
@@ -1080,25 +1287,37 @@
             <div class="soc-panel">
                 <h3>Indicateurs clés</h3>
                 <div class="soc-secure-row">
-                    <div class="soc-shield" aria-hidden="true">🛡</div>
+                    <div class="soc-shield{{ $monitorStats['secure_state'] === 'warn' ? ' soc-shield--warn' : '' }}" aria-hidden="true">🛡</div>
                     <div>
-                        <div style="font-weight:700;color:var(--soc-green);font-size:0.9rem;">Secure</div>
+                        <div class="soc-secure-label{{ $monitorStats['secure_state'] === 'warn' ? ' soc-secure-label--warn' : '' }}" style="font-weight:700;font-size:0.9rem;color:{{ $monitorStats['secure_state'] === 'warn' ? '#fb923c' : 'var(--soc-green)' }};">
+                            {{ $monitorStats['secure_state'] === 'warn' ? 'Attention' : 'Secure' }}
+                        </div>
                         <div class="soc-stat-list">
-                            <div><strong>0/0</strong> actifs critiques / à risque</div>
-                            <div><strong>10</strong> attaquants externes bloqués</div>
-                            <div><strong>0</strong> incidents en attente</div>
-                            <div><strong>0</strong> incidents résolus</div>
+                            <div>
+                                <strong><span class="soc-num" data-soc-count="{{ $monitorStats['critical'] }}">{{ $monitorStats['critical'] }}</span></strong>/<strong><span class="soc-num" data-soc-count="{{ $monitorStats['risky'] }}">{{ $monitorStats['risky'] }}</span></strong>
+                                actifs critiques / à risque
+                            </div>
+                            <div>
+                                <strong><span class="soc-num" data-soc-count="{{ $monitorStats['blocked'] }}">{{ $monitorStats['blocked'] }}</span></strong>
+                                blocages IP actifs
+                                @if(($blockedDistinctIps ?? 0) > 0)
+                                    <span style="color:#64748b;font-weight:500;">({{ $blockedDistinctIps }} IP distinctes)</span>
+                                @endif
+                            </div>
+                            <div><strong><span class="soc-num" data-soc-count="{{ $monitorStats['pending'] }}">{{ $monitorStats['pending'] }}</span></strong> incidents en attente</div>
+                            <div><strong><span class="soc-num" data-soc-count="{{ $monitorStats['resolved'] }}">{{ $monitorStats['resolved'] }}</span></strong> incidents résolus</div>
                         </div>
                     </div>
                 </div>
                 <h3>Menaces majeures</h3>
                 <div class="soc-threat-grid">
-                    <div class="soc-threat-cell"><span>Ransomware</span><span>None</span></div>
-                    <div class="soc-threat-cell"><span>Crypto-mining</span><span>None</span></div>
-                    <div class="soc-threat-cell"><span>WebShell</span><span>None</span></div>
-                    <div class="soc-threat-cell"><span>Exploit</span><span>None</span></div>
-                    <div class="soc-threat-cell"><span>Hacktool</span><span>None</span></div>
-                    <div class="soc-threat-cell"><span>Virus</span><span>None</span></div>
+                    @foreach($threatCategories as $tc)
+                        @php $tcnt = (int) ($alertsByCat[$tc['key']] ?? 0); @endphp
+                        <div class="soc-threat-cell">
+                            <span>{{ $tc['short'] }}</span>
+                            <span>{{ $tcnt > 0 ? $tcnt : 'None' }}</span>
+                        </div>
+                    @endforeach
                 </div>
             </div>
             <div class="soc-panel" style="margin-top:16px;">
@@ -1108,27 +1327,34 @@
                         <span>Alertes de sécurité massives</span>
                         <span>Moteur d’analyse multivariée</span>
                         <span>Réduction alertes homme-machine</span>
-                        <span>Incidents résolus / total (0/0)</span>
+                        <span>Incidents résolus / total ({{ $monitorStats['resolved'] }}/{{ $monitorStats['total_alerts'] }})</span>
                     </div>
                     <table class="soc-table">
                         <thead>
                             <tr>
                                 <th>Incident</th>
-                                <th>Tag</th>
+                                <th>Gravité</th>
                                 <th>Actif</th>
                                 <th>Heure</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="4" style="text-align:center;padding:16px;">Aucune donnée</td></tr>
+                            @forelse($recentAlerts as $ra)
+                                <tr>
+                                    <td>{{ \Illuminate\Support\Str::limit($ra->title, 42) }}</td>
+                                    <td>{{ $ra->severity }}</td>
+                                    <td>{{ $ra->affected_asset ?: ($ra->target_ip ?: '—') }}</td>
+                                    <td>{{ optional($ra->last_seen)->format('d/m H:i') ?? '—' }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="4" style="text-align:center;padding:16px;">Aucune alerte récente</td></tr>
+                            @endforelse
                         </tbody>
                     </table>
                     <div class="soc-sev-bar">
-                        <span>Critical <strong>0</strong></span>
-                        <span>High <strong>0</strong></span>
-                        <span>Medium <strong>0</strong></span>
-                        <span>Low <strong>0</strong></span>
-                        <span>Info <strong>0</strong></span>
+                        @foreach(['critical' => 'Critical', 'high' => 'High', 'medium' => 'Medium', 'low' => 'Low'] as $sevKey => $sevLabel)
+                            <span>{{ $sevLabel }} <strong class="soc-num" data-soc-count="{{ (int) ($severityOpen[$sevKey] ?? 0) }}">{{ (int) ($severityOpen[$sevKey] ?? 0) }}</strong></span>
+                        @endforeach
                     </div>
                 </div>
             </div>
@@ -1148,6 +1374,7 @@
                         <span class="soc-float-label soc-float-label--3">IOA Monitoring</span>
                         <span class="soc-float-label soc-float-label--4">Cloud Threat Intelligence</span>
                         <div class="soc-core" title="Asset monitoring">X</div>
+                        <p class="soc-hub-legend">Corrélation <strong>temps réel</strong> — détection &amp; IOA</p>
                     </div>
                     @if($monitoredAssets->isNotEmpty())
                         @php
@@ -1175,18 +1402,29 @@
                                                 @endphp
                                                 <div class="soc-plat-slot" style="--a: {{ $angle }}deg;">
                                                     <div class="soc-plat-node">
-                                                        <div class="soc-machine-node{{ !empty($underAttackAssetIds[$asset->id]) ? ' soc-machine-node--attack' : '' }}">
-                                                            <div class="soc-holo-cube-wrap">
-                                                                <div class="soc-iso-cube" title="{{ !empty($underAttackAssetIds[$asset->id]) ? $asset->hostname.' — victime d’attaque (alerte)' : $asset->hostname }}">
-                                                                    <div class="soc-iso-face soc-iso-face--top" aria-hidden="true"></div>
-                                                                    <div class="soc-iso-face soc-iso-face--right" aria-hidden="true"></div>
-                                                                    <div class="soc-iso-face soc-iso-face--front">
-                                                                        <span class="soc-iso-redstrip" aria-hidden="true"></span>
+                                                        <div class="soc-machine-wrap">
+                                                            <a href="{{ $assetAlertLinks[$asset->id] ?? route('detection.alerts') }}"
+                                                               target="_blank"
+                                                               rel="noopener noreferrer"
+                                                               class="soc-machine-link"
+                                                               aria-label="Ouvrir les alertes pour {{ $asset->hostname }}">
+                                                                <div class="soc-machine-node{{ !empty($underAttackAssetIds[$asset->id]) ? ' soc-machine-node--attack' : '' }}">
+                                                                    <div class="soc-holo-cube-wrap">
+                                                                        <div class="soc-iso-cube" title="{{ !empty($underAttackAssetIds[$asset->id]) ? $asset->hostname.' — victime d’attaque (alerte)' : $asset->hostname }}">
+                                                                            <div class="soc-iso-face soc-iso-face--top" aria-hidden="true"></div>
+                                                                            <div class="soc-iso-face soc-iso-face--right" aria-hidden="true"></div>
+                                                                            <div class="soc-iso-face soc-iso-face--front">
+                                                                                <span class="soc-iso-redstrip" aria-hidden="true"></span>
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
+                                                                    <div class="soc-holo-pedestal" aria-hidden="true"></div>
+                                                                    <div class="soc-holo-ip">{{ $displayLabel }}</div>
                                                                 </div>
-                                                            </div>
-                                                            <div class="soc-holo-pedestal" aria-hidden="true"></div>
-                                                            <div class="soc-holo-ip">{{ $displayLabel }}</div>
+                                                            </a>
+                                                            @if(!empty($assetAlertHints[$asset->id]))
+                                                                <div class="soc-machine-tip" role="tooltip">{{ $assetAlertHints[$asset->id] }}<span class="soc-machine-tip__more">Ouvrir les alertes</span></div>
+                                                            @endif
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1258,17 +1496,22 @@
             </div>
             <div class="soc-panel" style="margin-top:16px;">
                 <h3>Auto Containment</h3>
-                <p class="soc-stat-list">Attaquants externes bloqués : <strong>10</strong><br>Temps moyen de blocage : <strong>0 min</strong></p>
+                <p class="soc-stat-list">
+                    Blocages actifs : <strong><span class="soc-num" data-soc-count="{{ $monitorStats['blocked'] }}">{{ $monitorStats['blocked'] }}</span></strong>
+                    @if(($blockedDistinctIps ?? 0) > 0)
+                        <br>IP sources distinctes : <strong><span class="soc-num" data-soc-count="{{ $blockedDistinctIps }}">{{ $blockedDistinctIps }}</span></strong>
+                    @endif
+                </p>
                 <div class="soc-contain-visual">
                     <div class="soc-contain-orbit">
                         <div class="soc-contain-orbit-inner">🛡</div>
                     </div>
                 </div>
                 <div class="soc-mini-stats">
-                    <div>Surveillés<strong>{{ $monitoredCount }}</strong></div>
-                    <div>Bloqués<strong>10</strong></div>
-                    <div>Noms de domaine<strong>8</strong></div>
-                    <div>IP<strong>7</strong></div>
+                    <div>Surveillés<strong class="soc-num" data-soc-count="{{ $monitoredCount }}">{{ $monitoredCount }}</strong></div>
+                    <div>Blocages<strong class="soc-num" data-soc-count="{{ $monitorStats['blocked'] }}">{{ $monitorStats['blocked'] }}</strong></div>
+                    <div>Règles act.<strong class="soc-num" data-soc-count="{{ $monitorStats['active_rules'] }}">{{ $monitorStats['active_rules'] }}</strong></div>
+                    <div>En ligne<strong class="soc-num" data-soc-count="{{ $monitorStats['online_assets'] }}">{{ $monitorStats['online_assets'] }}</strong></div>
                 </div>
                 <table class="soc-table">
                     <thead>
@@ -1331,6 +1574,39 @@
         } else {
             fsBtn.style.display = 'none';
         }
+    }
+
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduceMotion) {
+        function easeOutQuad(t) {
+            return 1 - (1 - t) * (1 - t);
+        }
+
+        function runCountUp(el, target, duration) {
+            var start = performance.now();
+            var from = 0;
+            function frame(now) {
+                var p = Math.min(1, (now - start) / duration);
+                var v = Math.round(from + (target - from) * easeOutQuad(p));
+                el.textContent = String(v);
+                if (p < 1) {
+                    requestAnimationFrame(frame);
+                } else {
+                    el.textContent = String(target);
+                }
+            }
+            requestAnimationFrame(frame);
+        }
+
+        document.querySelectorAll('[data-soc-count]').forEach(function (node) {
+            var raw = node.getAttribute('data-soc-count');
+            var n = parseInt(raw, 10);
+            if (isNaN(n) || n <= 0) {
+                return;
+            }
+            node.textContent = '0';
+            runCountUp(node, n, Math.min(1400, 320 + n * 12));
+        });
     }
 })();
 </script>

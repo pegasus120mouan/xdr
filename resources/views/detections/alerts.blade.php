@@ -67,7 +67,9 @@
                     </option>
                 @endforeach
             </select>
-            @if(request()->hasAny(['status', 'severity', 'category']))
+            <input type="hidden" name="target_ip" value="{{ request('target_ip') }}">
+            <input type="hidden" name="affected" value="{{ request('affected') }}">
+            @if(request()->hasAny(['status', 'severity', 'category', 'target_ip', 'affected']))
                 <a href="{{ route('detection.alerts') }}" class="btn btn-secondary btn-sm">Clear Filters</a>
             @endif
         </form>
