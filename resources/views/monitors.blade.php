@@ -189,7 +189,7 @@
     }
 
     .soc-hub-wrap--active {
-        min-height: 480px;
+        min-height: 560px;
     }
 
     .soc-hub-visual {
@@ -199,122 +199,298 @@
         margin: 0 auto;
     }
 
-    /* Machines en orbite circulaire autour du hub */
-    .soc-orbit {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        width: 0;
-        height: 0;
-        z-index: 4;
+    /* Flux + pluie de données (style référence) */
+    .soc-plat-beams {
+        height: 48px;
+        margin: -4px auto 0;
+        max-width: 220px;
+        background:
+            repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 6px,
+                rgba(0, 204, 255, 0.07) 6px,
+                rgba(0, 204, 255, 0.07) 7px
+            ),
+            repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 4px,
+                rgba(0, 204, 255, 0.06) 4px,
+                rgba(0, 204, 255, 0.06) 5px
+            );
+        -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 20%, #000 80%, transparent 100%);
+        mask-image: linear-gradient(180deg, transparent 0%, #000 20%, #000 80%, transparent 100%);
+        animation: soc-beam-pulse 2.4s ease-in-out infinite;
         pointer-events: none;
-        animation: soc-orbit-spin var(--orbit-dur, 48s) linear infinite;
     }
 
-    @keyframes soc-orbit-spin {
+    @keyframes soc-beam-pulse {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 0.95; }
+    }
+
+    /* Plateforme holo cyan + perspective (palette #000033 / #00CCFF / #FF3300) */
+    .soc-plat-scene {
+        --holo-navy: #000033;
+        --holo-cyan: #00ccff;
+        --holo-red: #ff3300;
+        perspective: 1100px;
+        perspective-origin: 50% 0%;
+        margin-top: 4px;
+        position: relative;
+        padding-bottom: 8px;
+    }
+
+    .soc-plat-scene::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 52px;
+        width: 320px;
+        height: 220px;
+        margin-left: -160px;
+        background: repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 10px,
+            rgba(0, 204, 255, 0.04) 10px,
+            rgba(0, 204, 255, 0.04) 11px
+        );
+        -webkit-mask-image: radial-gradient(ellipse 55% 50% at 50% 45%, #000 0%, transparent 75%);
+        mask-image: radial-gradient(ellipse 55% 50% at 50% 45%, #000 0%, transparent 75%);
+        animation: soc-data-rain 5s linear infinite;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.85;
+    }
+
+    @keyframes soc-data-rain {
+        from { transform: translateY(-12px); }
+        to { transform: translateY(12px); }
+    }
+
+    .soc-plat-stage {
+        transform-style: preserve-3d;
+        position: relative;
+        z-index: 1;
+    }
+
+    .soc-plat-floor {
+        position: relative;
+        height: 210px;
+        transform: rotateX(52deg);
+        transform-origin: center 22%;
+        transform-style: preserve-3d;
+    }
+
+    /* Grand disque vitré cyan (référence) */
+    .soc-plat-ring {
+        position: absolute;
+        left: 50%;
+        top: 42%;
+        width: 300px;
+        height: 300px;
+        margin-left: -150px;
+        margin-top: -150px;
+        border-radius: 50%;
+        border: 1px solid rgba(0, 204, 255, 0.55);
+        background:
+            repeating-conic-gradient(
+                from 0deg at 50% 50%,
+                rgba(0, 204, 255, 0.04) 0deg 3deg,
+                transparent 3deg 8deg
+            ),
+            radial-gradient(
+                ellipse 72% 55% at 50% 42%,
+                rgba(0, 204, 255, 0.18) 0%,
+                rgba(0, 30, 80, 0.12) 45%,
+                rgba(0, 0, 51, 0.35) 100%
+            );
+        box-shadow:
+            0 0 2px rgba(0, 204, 255, 0.8),
+            0 0 48px rgba(0, 204, 255, 0.22),
+            0 0 80px rgba(0, 120, 200, 0.12),
+            inset 0 0 70px rgba(0, 204, 255, 0.1),
+            inset 0 -20px 50px rgba(0, 0, 51, 0.4);
+        animation: soc-plat-glass-pulse 3.5s ease-in-out infinite;
+        pointer-events: none;
+    }
+
+    @keyframes soc-plat-glass-pulse {
+        0%, 100% {
+            box-shadow:
+                0 0 2px rgba(0, 204, 255, 0.65),
+                0 0 40px rgba(0, 204, 255, 0.18),
+                0 0 72px rgba(0, 120, 200, 0.1),
+                inset 0 0 60px rgba(0, 204, 255, 0.08),
+                inset 0 -20px 50px rgba(0, 0, 51, 0.45);
+        }
+        50% {
+            box-shadow:
+                0 0 3px rgba(0, 204, 255, 0.95),
+                0 0 56px rgba(0, 204, 255, 0.28),
+                0 0 96px rgba(0, 180, 255, 0.14),
+                inset 0 0 80px rgba(0, 204, 255, 0.12),
+                inset 0 -20px 50px rgba(0, 0, 51, 0.35);
+        }
+    }
+
+    .soc-plat-orbit {
+        position: absolute;
+        left: 50%;
+        top: 42%;
+        width: 0;
+        height: 0;
+        z-index: 2;
+        pointer-events: none;
+        animation: soc-plat-spin var(--orbit-dur, 52s) linear infinite;
+        transform-style: preserve-3d;
+    }
+
+    @keyframes soc-plat-spin {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
     }
 
-    .soc-orbit-slot {
+    .soc-plat-slot {
         position: absolute;
         left: 0;
         top: 0;
         width: 0;
         height: 0;
-        transform: rotate(var(--a, 0deg)) translateY(calc(-1 * var(--orbit-r, 128px)));
+        transform: rotate(var(--a, 0deg)) translateY(calc(-1 * var(--orbit-r, 118px)));
         transform-origin: center center;
     }
 
-    .soc-orbit-counter {
-        animation: soc-orbit-counter var(--orbit-dur, 48s) linear infinite;
+    .soc-plat-node {
         transform: translate(-50%, -50%);
         pointer-events: auto;
     }
 
-    @keyframes soc-orbit-counter {
-        from { transform: translate(-50%, -50%) rotate(0deg); }
-        to { transform: translate(-50%, -50%) rotate(-360deg); }
-    }
-
+    /* Nœud machine : cube isométrique + socle rouge + plaque IP (référence) */
     .soc-machine-node {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 4px;
-        filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.2));
+        gap: 0;
+        filter: drop-shadow(0 8px 16px rgba(0, 0, 51, 0.65));
     }
 
-    .soc-machine-node__rack {
-        width: 38px;
-        height: 50px;
-        background: linear-gradient(180deg, #1a5080 0%, #0a1f38 55%, #071426 100%);
-        border: 1px solid rgba(0, 212, 255, 0.55);
-        border-radius: 5px;
-        box-shadow:
-            0 0 0 3px rgba(220, 38, 38, 0.5),
-            0 0 18px rgba(220, 38, 38, 0.25),
-            0 10px 28px rgba(0, 40, 90, 0.45);
+    .soc-holo-cube-wrap {
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        perspective: 100px;
+        perspective-origin: 50% 40%;
+    }
+
+    .soc-iso-cube {
+        width: 26px;
+        height: 26px;
         position: relative;
-        overflow: hidden;
-        animation: rack-glow 3s ease-in-out infinite;
+        transform-style: preserve-3d;
+        transform: rotateX(-18deg) rotateY(-40deg);
     }
 
-    @keyframes rack-glow {
-        0%, 100% { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.45), 0 0 14px rgba(220, 38, 38, 0.2), 0 10px 28px rgba(0, 40, 90, 0.45); }
-        50% { box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.65), 0 0 22px rgba(220, 38, 38, 0.35), 0 10px 28px rgba(0, 40, 90, 0.45); }
-    }
-
-    .soc-machine-node__rack::before {
-        content: '';
+    .soc-iso-face {
         position: absolute;
-        left: 5px;
-        right: 5px;
-        top: 10px;
-        bottom: 12px;
-        background: repeating-linear-gradient(
-            180deg,
-            rgba(15, 40, 70, 0.9),
-            rgba(15, 40, 70, 0.9) 5px,
-            rgba(239, 68, 68, 0.75) 5px,
-            rgba(239, 68, 68, 0.75) 7px
+        width: 26px;
+        height: 26px;
+        box-sizing: border-box;
+        border: 1px solid rgba(0, 204, 255, 0.45);
+        backface-visibility: hidden;
+    }
+
+    .soc-iso-face--front {
+        background: linear-gradient(160deg, #00a8e0 0%, #006699 42%, #003d55 100%);
+        transform: translateZ(13px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 0 12px rgba(0, 204, 255, 0.15);
+    }
+
+    .soc-iso-face--right {
+        background: linear-gradient(180deg, #005577 0%, #002233 100%);
+        transform: rotateY(90deg) translateZ(13px);
+        box-shadow: inset -4px 0 8px rgba(0, 0, 0, 0.35);
+    }
+
+    .soc-iso-face--top {
+        background: linear-gradient(145deg, #00ccff 0%, #0088bb 55%, #004466 100%);
+        transform: rotateX(90deg) translateZ(13px);
+        box-shadow: inset 0 4px 10px rgba(255, 255, 255, 0.12);
+    }
+
+    .soc-iso-redstrip {
+        width: 88%;
+        height: 5px;
+        border-radius: 1px;
+        background: linear-gradient(
+            90deg,
+            transparent 0%,
+            var(--holo-red, #ff3300) 20%,
+            #ff6633 50%,
+            var(--holo-red, #ff3300) 80%,
+            transparent 100%
         );
-        border-radius: 2px;
+        box-shadow:
+            0 0 8px var(--holo-red, #ff3300),
+            0 0 16px rgba(255, 51, 0, 0.55);
+        animation: soc-redstrip-pulse 2s ease-in-out infinite;
     }
 
-    .soc-machine-node__led {
-        position: absolute;
-        bottom: 5px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 6px;
-        height: 6px;
+    @keyframes soc-redstrip-pulse {
+        0%, 100% { opacity: 0.95; filter: brightness(1); }
+        50% { opacity: 1; filter: brightness(1.15); }
+    }
+
+    .soc-holo-pedestal {
+        width: 38px;
+        height: 11px;
+        margin-top: -2px;
         border-radius: 50%;
-        background: #22c55e;
-        box-shadow: 0 0 8px #22c55e;
-        z-index: 1;
+        background: radial-gradient(
+            ellipse at center,
+            rgba(255, 51, 0, 0.75) 0%,
+            rgba(255, 51, 0, 0.35) 45%,
+            transparent 72%
+        );
+        box-shadow:
+            0 0 12px var(--holo-red, #ff3300),
+            0 0 28px rgba(255, 51, 0, 0.45);
+        flex-shrink: 0;
+        animation: soc-pedestal-pulse 2.5s ease-in-out infinite;
     }
 
-    .soc-machine-node__label {
-        font-size: 0.68rem;
+    @keyframes soc-pedestal-pulse {
+        0%, 100% { box-shadow: 0 0 10px #ff3300, 0 0 24px rgba(255, 51, 0, 0.4); }
+        50% { box-shadow: 0 0 18px #ff3300, 0 0 36px rgba(255, 51, 0, 0.55); }
+    }
+
+    .soc-holo-ip {
+        margin-top: 7px;
+        padding: 4px 9px;
+        font-size: 0.62rem;
         font-weight: 600;
-        color: #7dd3fc;
+        color: #f1f5f9;
+        letter-spacing: 0.03em;
         font-variant-numeric: tabular-nums;
-        max-width: 96px;
         text-align: center;
-        word-break: break-all;
-        line-height: 1.2;
+        max-width: 104px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        background: rgba(0, 0, 51, 0.82);
+        border: 1px solid rgba(0, 204, 255, 0.28);
+        border-radius: 2px;
+        box-shadow:
+            0 2px 12px rgba(0, 0, 0, 0.45),
+            0 0 14px rgba(0, 204, 255, 0.08);
     }
-
-    .soc-machine-node__stat {
-        font-size: 0.58rem;
-        text-transform: capitalize;
-    }
-
-    .soc-machine-node__stat--online { color: #22c55e; }
-    .soc-machine-node__stat--offline { color: #64748b; }
-    .soc-machine-node__stat--alerting { color: #f97316; }
-    .soc-machine-node__stat--unknown { color: #94a3b8; }
 
     .soc-hub {
         position: relative;
@@ -494,7 +670,7 @@
         flex-wrap: wrap;
     }
 
-    .soc-orbit {
+    .soc-contain-orbit {
         width: 100px;
         height: 100px;
         border-radius: 50%;
@@ -502,14 +678,14 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        animation: orbit-spin 20s linear infinite;
+        animation: soc-contain-spin 20s linear infinite;
     }
 
-    @keyframes orbit-spin {
+    @keyframes soc-contain-spin {
         to { transform: rotate(360deg); }
     }
 
-    .soc-orbit-inner {
+    .soc-contain-orbit-inner {
         width: 56px;
         height: 56px;
         border-radius: 50%;
@@ -519,7 +695,7 @@
         align-items: center;
         justify-content: center;
         font-size: 1.5rem;
-        animation: orbit-spin 20s linear infinite reverse;
+        animation: soc-contain-spin 20s linear infinite reverse;
     }
 
     .soc-mini-stats {
@@ -684,7 +860,7 @@
         <div class="soc-col">
             <div class="soc-panel soc-hub-wrap {{ $monitoredCount > 0 ? 'soc-hub-wrap--active' : '' }}">
                 <div class="soc-hub-visual">
-                    <div class="soc-hub" aria-label="Hub de surveillance des actifs" @if($monitoredAssets->isNotEmpty()) style="--orbit-dur: 48s; --orbit-r: {{ $monitoredCount > 6 ? '118px' : '128px' }};" @endif>
+                    <div class="soc-hub" aria-label="Hub de surveillance des actifs">
                         <div class="soc-rings">
                             <div class="soc-ring soc-ring--1"></div>
                             <div class="soc-ring soc-ring--2"></div>
@@ -695,36 +871,52 @@
                         <span class="soc-float-label soc-float-label--3">IOA Monitoring</span>
                         <span class="soc-float-label soc-float-label--4">Cloud Threat Intelligence</span>
                         <div class="soc-core" title="Asset monitoring">X</div>
-                        @if($monitoredAssets->isNotEmpty())
-                            @php
-                                $step = $monitoredCount > 0 ? 360 / $monitoredCount : 0;
-                            @endphp
-                            <div class="soc-orbit" role="presentation">
-                                @foreach($monitoredAssets as $asset)
-                                    @php
-                                        $displayLabel = $asset->ip_address ?: $asset->hostname;
-                                        $angle = $loop->index * $step;
-                                    @endphp
-                                    <div class="soc-orbit-slot" style="--a: {{ $angle }}deg;">
-                                        <div class="soc-orbit-counter">
-                                            <div class="soc-machine-node">
-                                                <div class="soc-machine-node__rack" title="{{ $asset->hostname }}">
-                                                    <span class="soc-machine-node__led"></span>
-                                                </div>
-                                                <span class="soc-machine-node__label">{{ $displayLabel }}</span>
-                                                <span class="soc-machine-node__stat soc-machine-node__stat--{{ $asset->status }}">{{ $asset->status }}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
                     </div>
+                    @if($monitoredAssets->isNotEmpty())
+                        <div class="soc-plat-beams" aria-hidden="true"></div>
+                        @php
+                            $step = $monitoredCount > 0 ? 360 / $monitoredCount : 0;
+                            $platR = $monitoredCount > 6 ? '108px' : '118px';
+                            $platDur = $monitoredCount > 4 ? '58s' : '48s';
+                        @endphp
+                        <div class="soc-plat-scene">
+                            <div class="soc-plat-stage">
+                                <div class="soc-plat-floor" style="--orbit-dur: {{ $platDur }}; --orbit-r: {{ $platR }};">
+                                    <div class="soc-plat-ring" aria-hidden="true"></div>
+                                    <div class="soc-plat-orbit" role="presentation">
+                                        @foreach($monitoredAssets as $asset)
+                                            @php
+                                                $displayLabel = $asset->ip_address ?: $asset->hostname;
+                                                $angle = $loop->index * $step;
+                                            @endphp
+                                            <div class="soc-plat-slot" style="--a: {{ $angle }}deg;">
+                                                <div class="soc-plat-node">
+                                                    <div class="soc-machine-node">
+                                                        <div class="soc-holo-cube-wrap">
+                                                            <div class="soc-iso-cube" title="{{ $asset->hostname }}">
+                                                                <div class="soc-iso-face soc-iso-face--top" aria-hidden="true"></div>
+                                                                <div class="soc-iso-face soc-iso-face--right" aria-hidden="true"></div>
+                                                                <div class="soc-iso-face soc-iso-face--front">
+                                                                    <span class="soc-iso-redstrip" aria-hidden="true"></span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="soc-holo-pedestal" aria-hidden="true"></div>
+                                                        <div class="soc-holo-ip">{{ $displayLabel }}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                 </div>
                 <div class="soc-hub-caption">
                     <h2>Asset Monitoring</h2>
                     @if($monitoredCount > 0)
-                        <p style="max-width: 320px;"><strong style="color:#7dd3fc;">{{ $monitoredCount }}</strong> machine(s) en orbite autour du hub — surveillance active.</p>
+                        <p style="max-width: 320px;"><strong style="color:#7dd3fc;">{{ $monitoredCount }}</strong> machine(s) sur la plateforme de surveillance — flux actif vers le hub.</p>
                         <a href="{{ route('monitor.configure') }}" class="soc-header__btn">Modifier la sélection</a>
                     @else
                         <p>La protection des actifs critiques n’est pas activée. Activez-la pour renforcer la surveillance.</p>
@@ -764,8 +956,8 @@
                 <h3>Auto Containment</h3>
                 <p class="soc-stat-list">Attaquants externes bloqués : <strong>10</strong><br>Temps moyen de blocage : <strong>0 min</strong></p>
                 <div class="soc-contain-visual">
-                    <div class="soc-orbit">
-                        <div class="soc-orbit-inner">🛡</div>
+                    <div class="soc-contain-orbit">
+                        <div class="soc-contain-orbit-inner">🛡</div>
                     </div>
                 </div>
                 <div class="soc-mini-stats">
