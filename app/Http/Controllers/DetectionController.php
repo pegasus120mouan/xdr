@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DetectionRule;
-use App\Models\SecurityAlert;
 use App\Models\BlockedIp;
+use App\Models\DetectionRule;
 use App\Models\LoginAttempt;
+use App\Models\SecurityAlert;
+use App\Services\IpGeolocationService;
 use Illuminate\Http\Request;
 
 class DetectionController extends Controller
@@ -26,7 +27,7 @@ class DetectionController extends Controller
     public function toggleRule(DetectionRule $rule)
     {
         if ($rule->is_system) {
-            $rule->update(['is_active' => !$rule->is_active]);
+            $rule->update(['is_active' => ! $rule->is_active]);
         }
 
         return back()->with('success', 'Rule status updated successfully.');
@@ -63,7 +64,7 @@ class DetectionController extends Controller
         }
 
         if ($request->filled('category')) {
-            $query->whereHas('rule', fn($q) => $q->where('category', $request->category));
+            $query->whereHas('rule', fn ($q) => $q->where('category', $request->category));
         }
 
         if ($request->filled('target_ip')) {
@@ -155,7 +156,12 @@ class DetectionController extends Controller
 
         $events = $eventsQuery->paginate(50)->withQueryString();
 
-        $sourceIps = $events->getCollection()->pluck('source_ip')->filter()->unique()->values();
+        $sourceIps = $events->getCollection()
+            ->pluck('source_ip')
+            ->map(fn ($ip) => is_string($ip) ? trim($ip) : $ip)
+            ->filter()
+            ->unique()
+            ->values();
         $blockedSet = BlockedIp::query()
             ->whereIn('ip_address', $sourceIps)
             ->where('is_active', true)
@@ -165,6 +171,8 @@ class DetectionController extends Controller
             ->pluck('ip_address')
             ->flip();
 
+        $geoByIp = app(IpGeolocationService::class)->lookupMany($sourceIps->all());
+
         return view('detections.alerts-attack-events', compact(
             'days',
             'range',
@@ -172,13 +180,15 @@ class DetectionController extends Controller
             'hotEvents',
             'maxHot',
             'events',
-            'blockedSet'
+            'blockedSet',
+            'geoByIp'
         ));
     }
 
     public function showAlert(SecurityAlert $alert)
     {
         $alert->load(['rule', 'assignedUser', 'resolvedByUser']);
+
         return view('detections.alert-detail', compact('alert'));
     }
 
@@ -214,6 +224,7 @@ class DetectionController extends Controller
     public function unblockIp(BlockedIp $blockedIp)
     {
         $blockedIp->update(['is_active' => false]);
+
         return back()->with('success', 'IP unblocked successfully.');
     }
 

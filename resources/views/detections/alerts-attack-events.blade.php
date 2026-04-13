@@ -87,13 +87,26 @@
                 <tbody>
                     @forelse($events as $idx => $ev)
                         @php
-                            $src = $ev->source_ip ?? '—';
+                            $srcRaw = $ev->source_ip;
+                            $src = ($srcRaw !== null && trim((string) $srcRaw) !== '') ? trim((string) $srcRaw) : '—';
                             $blocked = $src !== '—' && isset($blockedSet[$src]);
                         @endphp
                         <tr>
                             <td>{{ $events->firstItem() + $idx }}</td>
                             <td><code class="ae-mono">{{ $src }}</code></td>
-                            <td class="ae-loc"><span class="ae-loc-placeholder" title="Géolocalisation non configurée">—</span></td>
+                            <td class="ae-loc">
+                                @php $geo = $geoByIp[$src] ?? null; @endphp
+                                @if($geo && !empty($geo['flag_url']))
+                                    <span class="ae-loc-inner" title="{{ $geo['country'] }} ({{ $geo['code'] }})">
+                                        <img src="{{ $geo['flag_url'] }}" alt="" width="20" height="13" class="ae-flag" loading="lazy" decoding="async">
+                                        <span class="ae-country">{{ Str::limit($geo['country'], 28) }}</span>
+                                    </span>
+                                @elseif($geo)
+                                    <span class="ae-country" title="{{ $geo['country'] }}">{{ Str::limit($geo['country'], 32) }}</span>
+                                @else
+                                    <span class="ae-loc-placeholder">—</span>
+                                @endif
+                            </td>
                             <td>
                                 <span class="ae-sev ae-sev-{{ $ev->severity }}">{{ ucfirst($ev->severity) }}</span>
                             </td>
@@ -305,6 +318,19 @@
     .ae-allow { color: #94a3b8; font-size: 0.75rem; }
     .ae-ecount { color: #64748b; font-size: 0.72rem; }
     .ae-loc-placeholder { color: #475569; }
+    .ae-loc-inner {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        max-width: 200px;
+    }
+    .ae-flag {
+        flex-shrink: 0;
+        border-radius: 2px;
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
+        object-fit: cover;
+    }
+    .ae-country { font-size: 0.78rem; color: #cbd5e1; line-height: 1.25; }
     .th-link { color: #38bdf8; font-size: 0.78rem; }
 </style>
 @endpush
