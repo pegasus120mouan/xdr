@@ -4,7 +4,9 @@ use App\Http\Controllers\AgentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DetectionController;
 use App\Http\Controllers\MonitorController;
+use App\Http\Controllers\ResponseController;
 use App\Http\Controllers\TenantController;
+use App\Http\Controllers\ThreatHuntingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -43,6 +45,14 @@ Route::middleware('auth')->group(function () {
 
     // Login Attempts
     Route::get('/detection/login-attempts', [DetectionController::class, 'loginAttempts'])->name('detection.login-attempts');
+
+    // Automated responses (SOAR-style playbooks tied to detection rules)
+    Route::get('/responses', [ResponseController::class, 'index'])->name('responses.index');
+    Route::get('/responses/auto-containment', [ResponseController::class, 'autoContainment'])->name('responses.auto-containment');
+    Route::get('/responses/soar', [ResponseController::class, 'soar'])->name('responses.soar');
+
+    // Threat hunting (investigator, pivots, cross-source search)
+    Route::get('/threat-hunting', [ThreatHuntingController::class, 'index'])->name('threat-hunting.index');
 
     // Tenants & Assets
     Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');

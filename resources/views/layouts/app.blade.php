@@ -673,6 +673,7 @@
             background: #4d5a6c;
         }
     </style>
+    @stack('styles')
 </head>
 <body>
     <!-- Sidebar -->
@@ -718,14 +719,14 @@
                 <span class="icon">🤖</span>
                 AI Learning <span class="badge new">NEW</span>
             </a>
-            <a href="#" class="nav-item">
+            <a href="{{ route('responses.index') }}" class="nav-item {{ request()->routeIs('responses.*') ? 'active' : '' }}">
                 <span class="icon">🛡️</span>
                 Responses
             </a>
             <div class="nav-submenu">
-                <a href="#" class="nav-item">Auto Containment <span class="badge new">NEW</span></a>
-                <a href="#" class="nav-item">Responses</a>
-                <a href="#" class="nav-item">SOAR</a>
+                <a href="{{ route('responses.auto-containment') }}" class="nav-item {{ request()->routeIs('responses.auto-containment') ? 'active' : '' }}">Auto Containment <span class="badge new">NEW</span></a>
+                <a href="{{ route('responses.index') }}" class="nav-item {{ request()->routeIs('responses.index') ? 'active' : '' }}">Responses</a>
+                <a href="{{ route('responses.soar') }}" class="nav-item {{ request()->routeIs('responses.soar') ? 'active' : '' }}">SOAR</a>
                 <a href="#" class="nav-item">Ticketing System</a>
             </div>
             <a href="#" class="nav-item">
@@ -737,7 +738,7 @@
                 <a href="#" class="nav-item">Asset Check 🔥</a>
                 <a href="#" class="nav-item">Risky Apps</a>
             </div>
-            <a href="#" class="nav-item">
+            <a href="{{ route('threat-hunting.index') }}" class="nav-item {{ request()->routeIs('threat-hunting.*') ? 'active' : '' }}">
                 <span class="icon">🎯</span>
                 Threat Hunting Tools
             </a>

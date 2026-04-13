@@ -1,0 +1,489 @@
+@extends('layouts.app')
+
+@section('title', 'Threat Hunting - Wara XDR')
+
+@section('content')
+<div class="page-content th-page">
+    <div class="page-header th-header">
+        <div>
+            <h1 class="page-title">Threat Hunting</h1>
+            <p class="th-tagline">Investigation unifiée — IP, compte, chaîne dans les journaux agents et les alertes</p>
+        </div>
+        <div class="th-header-links">
+            <a href="{{ route('detection.alerts') }}" class="btn btn-secondary">Alertes</a>
+            <a href="{{ route('detection.login-attempts') }}" class="btn btn-secondary">Logins</a>
+            <a href="{{ route('monitor.attack-map') }}" class="btn btn-secondary" target="_blank" rel="noopener">Attack Map</a>
+        </div>
+    </div>
+
+    <section class="th-hero">
+        <form method="get" action="{{ route('threat-hunting.index') }}" class="th-search-form">
+            <label for="th-q" class="th-label">Recherche investigator (IOC / IP / e-mail / mot-clé)</label>
+            <div class="th-search-row">
+                <input type="search" name="q" id="th-q" value="{{ $q }}" class="th-input"
+                    placeholder="Ex. 203.0.113.50, admin@domaine.tld, Failed password, CVE-…" autocomplete="off">
+                <select name="since" class="th-select" title="Fenêtre temporelle pour logins, alertes et logs agents">
+                    @foreach([24 => '24 h', 72 => '3 j', 168 => '7 j', 336 => '14 j', 720 => '30 j'] as $h => $label)
+                        <option value="{{ $h }}" @selected((int)$since === $h)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <button type="submit" class="btn btn-primary th-submit">Analyser</button>
+            </div>
+            <div class="th-tm-row">
+                <label class="th-tm-check">
+                    <input type="checkbox" name="tm" value="1" @checked(request()->boolean('tm'))>
+                    <span>Enrichir avec <strong>ThreatMiner</strong> (OSINT)</span>
+                </label>
+                <select name="tm_rt" class="th-select th-tm-rt" title="Type de requête ThreatMiner (rt)">
+                    @foreach($tmRtOptions as $rtVal => $rtLabel)
+                        <option value="{{ $rtVal }}" @selected((int) request('tm_rt', 6) === (int) $rtVal)>
+                            rt={{ $rtVal }} — {{ $rtLabel }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <p class="th-hint">
+                Les IP complètes utilisent une correspondance exacte sur logins et alertes. Les autres termes cherchent dans les messages, titres et métadonnées.
+                ThreatMiner : IP, domaine ou hash MD5/SHA256 — voir la
+                <a href="https://www.threatminer.org/api.php" target="_blank" rel="noopener noreferrer">documentation API</a>
+                (limite d’environ <strong>10 requêtes/minute</strong> ; cette appli met en cache et limite les appels sortants).
+            </p>
+        </form>
+    </section>
+
+    <div class="th-stats">
+        <div class="th-stat">
+            <span class="th-stat-label">Alertes en cours</span>
+            <strong>{{ $stats['pending_alerts'] }}</strong>
+        </div>
+        <div class="th-stat th-stat-warn">
+            <span class="th-stat-label">Critiques / High ouvertes</span>
+            <strong>{{ $stats['critical_open'] }}</strong>
+        </div>
+        <div class="th-stat">
+            <span class="th-stat-label">Échecs login (24 h)</span>
+            <strong>{{ number_format($stats['failed_logins_24h']) }}</strong>
+        </div>
+        <div class="th-stat">
+            <span class="th-stat-label">Blocs IP actifs</span>
+            <strong>{{ $stats['active_blocks'] }}</strong>
+        </div>
+    </div>
+
+    <div class="th-grid-2">
+        <section class="th-panel">
+            <h2 class="th-panel-title">Top IP — échecs login (24 h)</h2>
+            @if($topFailedIps->isEmpty())
+                <p class="th-empty">Aucune donnée récente.</p>
+            @else
+                <table class="th-mini-table">
+                    <thead><tr><th>IP</th><th>Échecs</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach($topFailedIps as $row)
+                            <tr>
+                                <td><code>{{ $row->ip_address }}</code></td>
+                                <td>{{ $row->fail_count }}</td>
+                                <td><a href="{{ route('threat-hunting.index', array_merge(request()->only(['since', 'tm', 'tm_rt']), ['q' => $row->ip_address])) }}" class="th-link">Pivot →</a></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+        </section>
+
+        <section class="th-panel">
+            <h2 class="th-panel-title">Alertes critiques / high récentes</h2>
+            @if($recentCritical->isEmpty())
+                <p class="th-empty">Aucune alerte ouverte dans cette catégorie.</p>
+            @else
+                <ul class="th-alert-list">
+                    @foreach($recentCritical as $alert)
+                        <li>
+                            <a href="{{ route('detection.alerts.show', $alert) }}" class="th-alert-link">
+                                <span class="severity-pill sev-{{ $alert->severity }}">{{ $alert->severity }}</span>
+                                {{ Str::limit($alert->title, 72) }}
+                            </a>
+                            <span class="th-muted">{{ $alert->last_seen?->diffForHumans() }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+    </div>
+
+    @if($search !== null)
+        <section class="th-results">
+            <div class="th-results-head">
+                <h2>Résultats pour « {{ $q }} »</h2>
+                <span class="th-badge">{{ $search['total_hits'] }} correspondances (fenêtre {{ $sinceHours }} h pour les séries temporelles)</span>
+            </div>
+
+            @if($search['total_hits'] === 0)
+                <p class="th-empty-block">Aucun résultat. Élargissez la fenêtre temporelle ou essayez un autre terme.</p>
+            @endif
+
+            @if($search['blocked']->isNotEmpty())
+                <h3 class="th-sub">IPs bloquées</h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>IP</th><th>Raison</th><th>Jusqu’au</th><th>Statut</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach($search['blocked'] as $b)
+                                <tr>
+                                    <td><code>{{ $b->ip_address }}</code></td>
+                                    <td>{{ Str::limit($b->reason, 60) }}</td>
+                                    <td>{{ $b->blocked_until ? $b->blocked_until->format('Y-m-d H:i') : '—' }}</td>
+                                    <td>{{ $b->is_active ? 'Actif' : 'Inactif' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
+            @if($search['logins']->isNotEmpty())
+                <h3 class="th-sub">Tentatives de connexion</h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Date</th><th>IP</th><th>Compte</th><th>Résultat</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach($search['logins'] as $la)
+                                <tr>
+                                    <td>{{ $la->attempted_at->format('Y-m-d H:i:s') }}</td>
+                                    <td><code>{{ $la->ip_address }}</code></td>
+                                    <td>{{ $la->email }}</td>
+                                    <td>{{ $la->successful ? 'OK' : 'Échec' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
+            @if($search['alerts']->isNotEmpty())
+                <h3 class="th-sub">Alertes sécurité</h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Sévérité</th><th>Titre</th><th>IP source</th><th>Dernière vue</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach($search['alerts'] as $a)
+                                <tr>
+                                    <td><span class="severity-pill sev-{{ $a->severity }}">{{ $a->severity }}</span></td>
+                                    <td><a href="{{ route('detection.alerts.show', $a) }}">{{ Str::limit($a->title, 56) }}</a></td>
+                                    <td><code>{{ $a->source_ip ?? '—' }}</code></td>
+                                    <td>{{ $a->last_seen?->format('Y-m-d H:i') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
+            @if($search['agent_logs']->isNotEmpty())
+                <h3 class="th-sub">Logs agents (contenu du message)</h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Horodatage</th><th>Agent</th><th>Type</th><th>Sévérité</th><th>Message</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach($search['agent_logs'] as $log)
+                                <tr>
+                                    <td>{{ $log->log_timestamp?->format('Y-m-d H:i:s') ?? $log->created_at->format('Y-m-d H:i:s') }}</td>
+                                    <td>
+                                        @if($log->agent)
+                                            <a href="{{ route('agents.logs', $log->agent) }}">{{ $log->agent->name ?? $log->agent->hostname }}</a>
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+                                    <td>{{ $log->log_type }}</td>
+                                    <td>{{ $log->severity }}</td>
+                                    <td class="th-msg">{{ Str::limit($log->message, 140) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </section>
+    @endif
+
+    @if($threatMiner !== null)
+        <section class="th-threatminer">
+            <div class="th-tm-head">
+                <h2 class="th-tm-title">ThreatMiner</h2>
+                <a href="https://www.threatminer.org/api.php" target="_blank" rel="noopener noreferrer" class="th-link">API ThreatMiner</a>
+            </div>
+
+            @if(!($threatMiner['ok'] ?? false))
+                <div class="th-tm-alert th-tm-alert-warn">
+                    @switch($threatMiner['reason'] ?? '')
+                        @case('disabled')
+                            Enrichissement ThreatMiner désactivé (configuration <code>THREATMINER_ENABLED</code>).
+                            @break
+                        @case('rate_limited')
+                            Trop de requêtes vers l’API. Réessayez dans {{ (int) ($threatMiner['retry_after'] ?? 60) }} s.
+                            @break
+                        @case('indicator_not_supported')
+                            {{ $threatMiner['message'] ?? 'Indicateur non pris en charge.' }}
+                            @break
+                        @case('http_error')
+                            Erreur HTTP {{ $threatMiner['http_status'] ?? '?' }} vers ThreatMiner.
+                            @break
+                        @case('http_exception')
+                            Impossible de joindre ThreatMiner : {{ Str::limit($threatMiner['message'] ?? '', 120) }}
+                            @break
+                        @case('invalid_json')
+                            {{ $threatMiner['message'] ?? 'Réponse invalide.' }}
+                            @break
+                        @case('unsupported_type')
+                            Type d’indicateur non géré.
+                            @break
+                        @default
+                            {{ $threatMiner['message'] ?? 'Requête ThreatMiner indisponible.' }}
+                    @endswitch
+                </div>
+            @else
+                <div class="th-tm-meta">
+                    <span><code>{{ $threatMiner['endpoint'] ?? '' }}</code></span>
+                    <span>indicateur <strong>{{ $threatMiner['classified']['type'] ?? '' }}</strong> : <code>{{ $threatMiner['value'] ?? '' }}</code></span>
+                    <span>rt={{ $threatMiner['rt'] ?? '' }}
+                        @if(!empty($threatMiner['rt_labels'][$threatMiner['rt'] ?? 0]))
+                            ({{ $threatMiner['rt_labels'][$threatMiner['rt']] }})
+                        @endif
+                    </span>
+                    @if(!empty($threatMiner['cached']))
+                        <span class="th-tm-cached">cache appli</span>
+                    @endif
+                </div>
+                <p class="th-tm-api-status">
+                    API <code>status_code</code> : <strong>{{ $threatMiner['status_code'] ?? '—' }}</strong>
+                    @if(!empty($threatMiner['status_message']))
+                        — {{ $threatMiner['status_message'] }}
+                    @endif
+                    (200 = données trouvées, 404 = pas de résultat côté ThreatMiner.)
+                </p>
+                <pre class="th-tm-json" id="th-tm-json">{{ json_encode($threatMiner['results'] ?? null, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+            @endif
+        </section>
+    @endif
+
+    <section class="th-shortcuts">
+        <h2 class="th-panel-title">Raccourcis investigation</h2>
+        <div class="th-cards">
+            <a class="th-card" href="{{ route('detection.blocked-ips') }}">
+                <span class="th-card-icon">🚫</span>
+                <span class="th-card-title">Blocked IPs</span>
+                <span class="th-card-desc">Blocs manuels et automatiques</span>
+            </a>
+            <a class="th-card" href="{{ route('responses.index') }}">
+                <span class="th-card-icon">⚡</span>
+                <span class="th-card-title">Responses</span>
+                <span class="th-card-desc">Playbooks et actions auto</span>
+            </a>
+            <a class="th-card" href="{{ route('agents.index') }}">
+                <span class="th-card-icon">📡</span>
+                <span class="th-card-title">Agents</span>
+                <span class="th-card-desc">Journaux par hôte</span>
+            </a>
+            <a class="th-card" href="{{ route('detection.rules') }}">
+                <span class="th-card-icon">📋</span>
+                <span class="th-card-title">Detection rules</span>
+                <span class="th-card-desc">MITRE, seuils, catégories</span>
+            </a>
+        </div>
+    </section>
+</div>
+
+@push('styles')
+<style>
+    .th-page .th-tagline { color: #64748b; font-size: 0.88rem; margin-top: 0.35rem; }
+    .th-header { align-items: flex-start; flex-wrap: wrap; gap: 1rem; }
+    .th-header-links { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .th-hero {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1.35rem 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .th-label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 0.5rem; }
+    .th-search-row { display: flex; flex-wrap: wrap; gap: 0.65rem; align-items: stretch; }
+    .th-input {
+        flex: 1 1 220px;
+        min-width: 0;
+        padding: 0.65rem 0.85rem;
+        border-radius: 8px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: #f1f5f9;
+        font-size: 0.95rem;
+    }
+    .th-input:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); }
+    .th-select {
+        padding: 0.65rem 0.75rem;
+        border-radius: 8px;
+        border: 1px solid #475569;
+        background: #1e293b;
+        color: #e2e8f0;
+        font-size: 0.85rem;
+    }
+    .th-submit { padding-left: 1.25rem; padding-right: 1.25rem; }
+    .th-hint { margin: 0.75rem 0 0; font-size: 0.78rem; color: #64748b; line-height: 1.45; }
+    .th-hint a { color: #38bdf8; }
+    .th-tm-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem 1.25rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #334155;
+    }
+    .th-tm-check {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: #cbd5e1;
+        cursor: pointer;
+    }
+    .th-tm-check input { width: 1rem; height: 1rem; accent-color: #38bdf8; }
+    .th-tm-rt { min-width: 220px; }
+    .th-threatminer {
+        margin-bottom: 2rem;
+        padding: 1.25rem 1.35rem;
+        background: linear-gradient(145deg, #1a2744 0%, #0f172a 100%);
+        border: 1px solid #3b5998;
+        border-radius: 12px;
+    }
+    .th-tm-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem; }
+    .th-tm-title { margin: 0; font-size: 1.05rem; color: #e8f0fe; }
+    .th-tm-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        font-size: 0.8rem;
+        color: #94a3b8;
+        margin-bottom: 0.65rem;
+    }
+    .th-tm-cached { color: #86efac; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .th-tm-api-status { font-size: 0.78rem; color: #94a3b8; margin: 0 0 0.75rem; line-height: 1.45; }
+    .th-tm-json {
+        margin: 0;
+        padding: 1rem;
+        max-height: 420px;
+        overflow: auto;
+        font-size: 0.72rem;
+        line-height: 1.4;
+        background: #0b1220;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        color: #a5d6ff;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .th-tm-alert {
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        color: #e2e8f0;
+    }
+    .th-tm-alert-warn {
+        background: rgba(234, 179, 8, 0.12);
+        border: 1px solid rgba(234, 179, 8, 0.35);
+    }
+    .th-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+    .th-stat {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        padding: 0.85rem 1rem;
+    }
+    .th-stat-warn { border-color: rgba(249, 115, 22, 0.35); }
+    .th-stat-label { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; margin-bottom: 0.25rem; }
+    .th-stat strong { font-size: 1.35rem; color: #f8fafc; }
+    .th-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .th-panel {
+        background: #162032;
+        border: 1px solid #2d3b50;
+        border-radius: 10px;
+        padding: 1rem 1.15rem;
+    }
+    .th-panel-title { font-size: 0.95rem; color: #e2e8f0; margin: 0 0 0.85rem; font-weight: 600; }
+    .th-empty, .th-empty-block { color: #64748b; font-size: 0.88rem; margin: 0; }
+    .th-empty-block { padding: 1.5rem; text-align: center; background: #1e293b; border-radius: 8px; }
+    .th-mini-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
+    .th-mini-table th { text-align: left; color: #94a3b8; font-weight: 500; padding: 0.35rem 0; border-bottom: 1px solid #334155; }
+    .th-mini-table td { padding: 0.45rem 0; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+    .th-link { color: #38bdf8; font-size: 0.8rem; text-decoration: none; }
+    .th-link:hover { text-decoration: underline; }
+    .th-alert-list { list-style: none; margin: 0; padding: 0; }
+    .th-alert-list li { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.5rem 0; border-bottom: 1px solid #1e293b; }
+    .th-alert-link { color: #e2e8f0; text-decoration: none; font-size: 0.86rem; line-height: 1.35; }
+    .th-alert-link:hover { color: #38bdf8; }
+    .th-muted { font-size: 0.72rem; color: #64748b; }
+    .severity-pill {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        margin-right: 0.35rem;
+    }
+    .sev-critical { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+    .sev-high { background: rgba(249, 115, 22, 0.2); color: #fdba74; }
+    .sev-medium { background: rgba(234, 179, 8, 0.15); color: #fde047; }
+    .sev-low { background: rgba(34, 197, 94, 0.15); color: #86efac; }
+    .th-results { margin-top: 0.5rem; margin-bottom: 2rem; }
+    .th-results-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.75rem; margin-bottom: 1rem; }
+    .th-results-head h2 { margin: 0; font-size: 1.1rem; color: #f1f5f9; }
+    .th-badge { font-size: 0.75rem; color: #94a3b8; background: #1e293b; padding: 0.25rem 0.55rem; border-radius: 6px; }
+    .th-sub { font-size: 0.88rem; color: #94a3b8; margin: 1.25rem 0 0.5rem; font-weight: 600; }
+    .th-msg { font-size: 0.8rem; color: #94a3b8; max-width: 32rem; }
+    .th-shortcuts { margin-bottom: 2rem; }
+    .th-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; }
+    .th-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        padding: 1rem 1.1rem;
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        text-decoration: none;
+        color: inherit;
+        transition: border-color 0.15s, background 0.15s;
+    }
+    .th-card:hover { border-color: #38bdf8; background: #243447; }
+    .th-card-icon { font-size: 1.25rem; }
+    .th-card-title { font-weight: 600; color: #f1f5f9; font-size: 0.9rem; }
+    .th-card-desc { font-size: 0.78rem; color: #64748b; line-height: 1.35; }
+    .btn-secondary {
+        background: #334155;
+        color: #e2e8f0;
+        border: 1px solid #475569;
+    }
+    .btn-secondary:hover { background: #475569; }
+</style>
+@endpush
+@endsection

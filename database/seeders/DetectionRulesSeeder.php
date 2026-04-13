@@ -399,14 +399,12 @@ class DetectionRulesSeeder extends Seeder
             [
                 'name' => 'Login Brute Force - IP Based',
                 'slug' => 'brute-force-ip',
-                'description' => 'Detects multiple failed login attempts from the same IP address within a short time window.',
+                'description' => 'Detects multiple failed login attempts from the same IP address within a short time window. Automatically blocks the source IP when the threshold is reached.',
                 'category' => 'brute_force',
                 'severity' => 'high',
-                'conditions' => [
-                    'patterns' => ['Failed password', 'authentication failure', 'Login failed'],
-                    'match_type' => 'any',
-                ],
+                'conditions' => ['ip_based'],
                 'actions' => [
+                    ['type' => 'block_ip', 'duration' => 6],
                     ['type' => 'log'],
                     ['type' => 'notify', 'channel' => 'email'],
                 ],
