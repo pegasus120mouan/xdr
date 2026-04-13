@@ -371,13 +371,13 @@
     }
 
     .soc-hub-wrap--active {
-        min-height: 560px;
+        min-height: 620px;
     }
 
     .soc-hub-visual {
         position: relative;
         width: 100%;
-        max-width: 440px;
+        max-width: 520px;
         margin: 0 auto;
     }
 
@@ -781,11 +781,13 @@
     .soc-iron-dome-fx {
         position: absolute;
         left: 50%;
-        bottom: 68px;
+        bottom: 62px;
         width: 360px;
         height: 228px;
         margin-left: -180px;
         pointer-events: none;
+        transform: scale(1.48);
+        transform-origin: 50% 100%;
     }
 
     .soc-iron-dome-shell {
