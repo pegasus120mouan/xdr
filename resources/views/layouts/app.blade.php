@@ -672,6 +672,165 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #4d5a6c;
         }
+
+        /* Pagination (sans Tailwind — vue vendor.pagination.wara) */
+        .pagination-container {
+            margin-top: 1.25rem;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        .pagination-container > nav,
+        .pagination-container > ul {
+            flex: 1 1 100%;
+            max-width: 100%;
+        }
+
+        .wara-pag {
+            width: 100%;
+        }
+
+        .wara-pag-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem 1.25rem;
+            padding: 0.85rem 1.1rem;
+            background: #151a24;
+            border: 1px solid #2d3748;
+            border-radius: 10px;
+        }
+
+        .wara-pag-toolbar--simple {
+            justify-content: center;
+            gap: 0.65rem;
+        }
+
+        .wara-pag-info {
+            margin: 0;
+            font-size: 0.82rem;
+            color: #94a3b8;
+            line-height: 1.45;
+        }
+
+        .wara-pag-info-strong {
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+
+        .wara-pag-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .wara-pag-pages {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .wara-pag-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            min-height: 2.15rem;
+            padding: 0.35rem 0.75rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            font-family: inherit;
+            text-decoration: none;
+            border-radius: 7px;
+            border: 1px solid transparent;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+
+        .wara-pag-btn--nav {
+            background: #1e2533;
+            border-color: #3d4a5c;
+            color: #cbd5e1;
+        }
+
+        a.wara-pag-btn--nav:hover {
+            background: #252d3d;
+            border-color: #00d4ff;
+            color: #f1f5f9;
+        }
+
+        .wara-pag-btn--nav.wara-pag-btn--disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            background: #161b26;
+            border-color: #2d3748;
+            color: #64748b;
+        }
+
+        .wara-pag-btn--page {
+            min-width: 2.15rem;
+            padding-left: 0.55rem;
+            padding-right: 0.55rem;
+            background: #1a1f2e;
+            border-color: #2d3748;
+            color: #94a3b8;
+        }
+
+        a.wara-pag-btn--page:hover {
+            background: #232938;
+            border-color: rgba(0, 212, 255, 0.35);
+            color: #e2e8f0;
+        }
+
+        .wara-pag-btn--active {
+            background: linear-gradient(180deg, rgba(0, 212, 255, 0.22) 0%, rgba(6, 182, 212, 0.12) 100%);
+            border-color: rgba(0, 212, 255, 0.45);
+            color: #22d3ee;
+            font-weight: 600;
+            cursor: default;
+        }
+
+        .wara-pag-btn--ellipsis {
+            min-width: 2.15rem;
+            padding-left: 0.35rem;
+            padding-right: 0.35rem;
+            color: #64748b;
+            background: transparent;
+            border: none;
+            cursor: default;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+        }
+
+        .wara-pag-icon {
+            font-size: 1.1rem;
+            line-height: 1;
+            margin-right: 0.1rem;
+            opacity: 0.9;
+        }
+
+        .wara-pag-icon--after {
+            margin-right: 0;
+            margin-left: 0.1rem;
+        }
+
+        @media (max-width: 640px) {
+            .wara-pag-toolbar:not(.wara-pag-toolbar--simple) {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .wara-pag-controls {
+                justify-content: center;
+            }
+
+            .wara-pag-info {
+                text-align: center;
+            }
+        }
     </style>
     @stack('styles')
 </head>
