@@ -170,9 +170,6 @@
         </div>
     </section>
 
-    @php
-        $aeBlockModalBrand = parse_url((string) config('app.url'), PHP_URL_HOST) ?: config('app.name');
-    @endphp
     <div
         id="ae-block-modal"
         class="ae-modal"
@@ -191,7 +188,7 @@
                         <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                     </svg>
                 </span>
-                <span id="ae-block-modal-brand" class="ae-modal-brand">{{ $aeBlockModalBrand }}</span>
+                <span id="ae-block-modal-brand" class="ae-modal-brand">Blocage définitif</span>
             </div>
             <div class="ae-modal-body">
                 <p class="ae-modal-text">Bloquer définitivement cette adresse IP ? Elle sera ajoutée à la liste noire sans date de fin.</p>
