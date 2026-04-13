@@ -6,6 +6,8 @@ use App\Models\AgentLog;
 use App\Models\BlockedIp;
 use App\Models\LoginAttempt;
 use App\Models\SecurityAlert;
+use App\Services\OtxService;
+use App\Services\OpenCtiService;
 use App\Services\ThreatMinerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -77,6 +79,17 @@ class ThreatHuntingController extends Controller
             }
         }
 
+        $openCti = null;
+        if ($q !== '' && $request->boolean('opencti')) {
+            $ocFirst = max(5, min(100, (int) $request->get('opencti_first', config('opencti.default_first', 25))));
+            $openCti = app(OpenCtiService::class)->search($q, $ocFirst);
+        }
+
+        $otx = null;
+        if ($q !== '' && $request->boolean('otx')) {
+            $otx = app(OtxService::class)->lookup($q, $request->boolean('otx_extended'));
+        }
+
         return view('threat-hunting.index', compact(
             'q',
             'since',
@@ -86,7 +99,9 @@ class ThreatHuntingController extends Controller
             'recentCritical',
             'search',
             'threatMiner',
-            'tmRtOptions'
+            'tmRtOptions',
+            'openCti',
+            'otx'
         ));
     }
 

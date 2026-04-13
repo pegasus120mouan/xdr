@@ -42,11 +42,38 @@
                     @endforeach
                 </select>
             </div>
+            <div class="th-tm-row th-oc-row">
+                <label class="th-tm-check">
+                    <input type="checkbox" name="opencti" value="1" @checked(request()->boolean('opencti'))>
+                    <span>Enrichir avec <strong>OpenCTI</strong> (CTI)</span>
+                </label>
+                <label class="th-oc-first-wrap">
+                    <span class="th-oc-first-label">Max. résultats</span>
+                    <input type="number" name="opencti_first" class="th-oc-first-input" min="5" max="100" step="1"
+                        value="{{ (int) request('opencti_first', config('opencti.default_first', 25)) }}">
+                </label>
+            </div>
+            <div class="th-tm-row th-otx-row">
+                <label class="th-tm-check">
+                    <input type="checkbox" name="otx" value="1" @checked(request()->boolean('otx'))>
+                    <span>Enrichir avec <strong>AlienVault OTX</strong></span>
+                </label>
+                <label class="th-tm-check th-otx-ext">
+                    <input type="checkbox" name="otx_extended" value="1" @checked(request()->boolean('otx_extended'))>
+                    <span>2ᵉ section API (réputation, passive DNS, analyse fichier…)</span>
+                </label>
+            </div>
             <p class="th-hint">
                 Les IP complètes utilisent une correspondance exacte sur logins et alertes. Les autres termes cherchent dans les messages, titres et métadonnées.
                 ThreatMiner : IP, domaine ou hash MD5/SHA256 — voir la
                 <a href="https://www.threatminer.org/api.php" target="_blank" rel="noopener noreferrer">documentation API</a>
                 (limite d’environ <strong>10 requêtes/minute</strong> ; cette appli met en cache et limite les appels sortants).
+                <strong>OpenCTI</strong> : recherche plein texte sur les objets STIX via l’API GraphQL
+                (<a href="https://docs.opencti.io/latest/reference/api/" target="_blank" rel="noopener noreferrer">documentation</a>) —
+                activer <code>OPENCTI_ENABLED=true</code>, renseigner <code>OPENCTI_URL</code> et <code>OPENCTI_TOKEN</code> (Bearer).
+                <strong>OTX</strong> : clé dans <a href="https://otx.alienvault.com/settings" target="_blank" rel="noopener noreferrer">OTX → Settings</a>
+                → <em>OTX Key</em>, puis <code>OTX_ENABLED=true</code> et <code>OTX_API_KEY</code> dans <code>.env</code>
+                (ne commitez jamais la clé ; régénérez-la si elle a pu être exposée).
             </p>
         </form>
     </section>
@@ -83,7 +110,7 @@
                             <tr>
                                 <td><code>{{ $row->ip_address }}</code></td>
                                 <td>{{ $row->fail_count }}</td>
-                                <td><a href="{{ route('threat-hunting.index', array_merge(request()->only(['since', 'tm', 'tm_rt']), ['q' => $row->ip_address])) }}" class="th-link">Pivot →</a></td>
+                                <td><a href="{{ route('threat-hunting.index', array_merge(request()->only(['since', 'tm', 'tm_rt', 'opencti', 'opencti_first', 'otx', 'otx_extended']), ['q' => $row->ip_address])) }}" class="th-link">Pivot →</a></td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -275,6 +302,176 @@
         </section>
     @endif
 
+    @if($openCti !== null)
+        <section class="th-opencti">
+            <div class="th-oc-head">
+                <h2 class="th-oc-title">OpenCTI</h2>
+                <a href="https://docs.opencti.io/latest/reference/api/" target="_blank" rel="noopener noreferrer" class="th-link">Documentation API</a>
+            </div>
+
+            @if(!($openCti['ok'] ?? false))
+                <div class="th-oc-alert">
+                    @switch($openCti['reason'] ?? '')
+                        @case('disabled')
+                            OpenCTI est désactivé. Passez <code>OPENCTI_ENABLED=true</code> dans <code>.env</code>.
+                            @break
+                        @case('missing_token')
+                        @case('missing_url')
+                            {{ $openCti['message'] ?? 'Configurez OPENCTI_URL et OPENCTI_TOKEN.' }}
+                            @break
+                        @case('rate_limited')
+                            Trop de requêtes OpenCTI. Réessayez dans {{ (int) ($openCti['retry_after'] ?? 60) }} s.
+                            @break
+                        @case('http_error')
+                            Erreur HTTP {{ $openCti['http_status'] ?? '?' }}.
+                            @if(!empty($openCti['body']))
+                                <pre class="th-oc-pre-inline">{{ $openCti['body'] }}</pre>
+                            @endif
+                            @break
+                        @case('http_exception')
+                            Impossible de joindre OpenCTI : {{ Str::limit($openCti['message'] ?? '', 160) }}
+                            @break
+                        @case('graphql_errors')
+                            Erreur GraphQL (schéma ou droits). Vérifiez la version d’OpenCTI et le token.
+                            <pre class="th-oc-pre-inline">{{ json_encode($openCti['errors'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+                            @if(!empty($openCti['hint']))
+                                <p class="th-oc-hint">{{ $openCti['hint'] }}</p>
+                            @endif
+                            @break
+                        @case('empty_search')
+                            Recherche vide.
+                            @break
+                        @case('invalid_json')
+                            Réponse OpenCTI non interprétable.
+                            @break
+                        @default
+                            {{ $openCti['message'] ?? 'Requête OpenCTI indisponible.' }}
+                    @endswitch
+                </div>
+            @else
+                <div class="th-oc-meta">
+                    <span>Recherche <code>{{ $openCti['search'] ?? '' }}</code></span>
+                    <span>jusqu’à <strong>{{ $openCti['first'] ?? '' }}</strong> objets</span>
+                    @if(!empty($openCti['page_info']['globalCount']))
+                        <span>total index (indicatif) : {{ $openCti['page_info']['globalCount'] }}</span>
+                    @endif
+                    @if(!empty($openCti['cached']))
+                        <span class="th-oc-cached">cache appli</span>
+                    @endif
+                </div>
+                @if(!empty($openCti['rows']))
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Libellé / pattern</th>
+                                    <th>MITRE</th>
+                                    <th>Créé</th>
+                                    <th>OpenCTI</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($openCti['rows'] as $row)
+                                    <tr>
+                                        <td><code>{{ $row['entity_type'] ?? '—' }}</code></td>
+                                        <td>{{ Str::limit($row['label'] ?? $row['pattern'] ?? '—', 80) }}</td>
+                                        <td>{{ $row['x_mitre_id'] ?? '—' }}</td>
+                                        <td>{{ $row['created_at'] ?? '—' }}</td>
+                                        <td>
+                                            @if(!empty($row['open_url']))
+                                                <a href="{{ $row['open_url'] }}" target="_blank" rel="noopener noreferrer" class="th-link">Ouvrir →</a>
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="th-empty-block">Aucun objet STIX ne correspond à cette recherche dans OpenCTI.</p>
+                @endif
+                <details class="th-oc-raw">
+                    <summary>Réponse GraphQL brute (debug)</summary>
+                    <pre class="th-tm-json">{{ json_encode($openCti['raw'] ?? null, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                </details>
+            @endif
+        </section>
+    @endif
+
+    @if($otx !== null)
+        <section class="th-otx">
+            <div class="th-otx-head">
+                <h2 class="th-otx-title">AlienVault OTX</h2>
+                <a href="https://otx.alienvault.com/api" target="_blank" rel="noopener noreferrer" class="th-link">API OTX</a>
+            </div>
+
+            @if(!($otx['ok'] ?? false))
+                <div class="th-otx-alert">
+                    @switch($otx['reason'] ?? '')
+                        @case('disabled')
+                            OTX est désactivé. Utilisez <code>OTX_ENABLED=true</code> et <code>OTX_API_KEY</code> dans <code>.env</code>.
+                            @break
+                        @case('missing_key')
+                            {{ $otx['message'] ?? 'Clé OTX manquante.' }}
+                            @break
+                        @case('indicator_not_supported')
+                            {{ $otx['message'] ?? 'Indicateur non pris en charge.' }}
+                            @break
+                        @case('rate_limited')
+                            Trop de requêtes OTX. Réessayez dans {{ (int) ($otx['retry_after'] ?? 60) }} s.
+                            @break
+                        @case('http_error')
+                            Erreur HTTP {{ $otx['http_status'] ?? '?' }}.
+                            @if(!empty($otx['body']))
+                                <pre class="th-oc-pre-inline">{{ $otx['body'] }}</pre>
+                            @endif
+                            @break
+                        @case('http_exception')
+                            Impossible de joindre OTX : {{ Str::limit($otx['message'] ?? '', 160) }}
+                            @break
+                        @default
+                            {{ $otx['message'] ?? 'Requête OTX indisponible.' }}
+                    @endswitch
+                </div>
+            @else
+                <div class="th-otx-meta">
+                    @if(!empty($otx['classified']))
+                        <span>Type <strong>{{ $otx['classified']['type'] ?? '' }}</strong></span>
+                        <span>IOC <code>{{ $otx['classified']['value'] ?? '' }}</code></span>
+                    @endif
+                    @if(!empty($otx['browse_url']))
+                        <a href="{{ $otx['browse_url'] }}" target="_blank" rel="noopener noreferrer" class="th-link">Voir sur OTX →</a>
+                    @endif
+                    @if(!empty($otx['cached']))
+                        <span class="th-otx-cached">cache appli</span>
+                    @endif
+                </div>
+                @php
+                    $otxGeneral = $otx['sections']['general'] ?? null;
+                @endphp
+                @if(is_array($otxGeneral))
+                    <p class="th-otx-summary">
+                        Pulses (champ <code>pulse_info.count</code> si présent) :
+                        <strong>{{ data_get($otxGeneral, 'pulse_info.count', '—') }}</strong>
+                    </p>
+                @endif
+                @foreach($otx['sections'] ?? [] as $secName => $secPayload)
+                    <details class="th-otx-sec" @if($secName === 'general') open @endif>
+                        <summary>Section <code>{{ $secName }}</code>
+                            @if(isset($otx['section_http'][$secName]))
+                                (HTTP {{ $otx['section_http'][$secName] }})
+                            @endif
+                        </summary>
+                        <pre class="th-tm-json">{{ json_encode($secPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                    </details>
+                @endforeach
+            @endif
+        </section>
+    @endif
+
     <section class="th-shortcuts">
         <h2 class="th-panel-title">Raccourcis investigation</h2>
         <div class="th-cards">
@@ -357,6 +554,98 @@
     }
     .th-tm-check input { width: 1rem; height: 1rem; accent-color: #38bdf8; }
     .th-tm-rt { min-width: 220px; }
+    .th-oc-row { border-top-color: #3d4f6a; }
+    .th-oc-first-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        color: #94a3b8;
+    }
+    .th-oc-first-label { white-space: nowrap; }
+    .th-oc-first-input {
+        width: 4.5rem;
+        padding: 0.45rem 0.5rem;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: #e2e8f0;
+        font-size: 0.85rem;
+    }
+    .th-opencti {
+        margin-bottom: 2rem;
+        padding: 1.25rem 1.35rem;
+        background: linear-gradient(145deg, #1f1815 0%, #0f172a 100%);
+        border: 1px solid #7c2d12;
+        border-radius: 12px;
+    }
+    .th-oc-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem; }
+    .th-oc-title { margin: 0; font-size: 1.05rem; color: #fed7aa; }
+    .th-oc-alert {
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        color: #e2e8f0;
+        background: rgba(249, 115, 22, 0.1);
+        border: 1px solid rgba(249, 115, 22, 0.35);
+    }
+    .th-oc-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        font-size: 0.8rem;
+        color: #94a3b8;
+        margin-bottom: 0.85rem;
+    }
+    .th-oc-cached { color: #86efac; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .th-oc-pre-inline {
+        margin: 0.5rem 0 0;
+        padding: 0.65rem;
+        font-size: 0.72rem;
+        background: #0b1220;
+        border-radius: 6px;
+        overflow: auto;
+        max-height: 200px;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .th-oc-hint { margin: 0.5rem 0 0; font-size: 0.78rem; color: #94a3b8; }
+    .th-oc-raw { margin-top: 1rem; font-size: 0.8rem; color: #94a3b8; }
+    .th-oc-raw summary { cursor: pointer; margin-bottom: 0.5rem; }
+    .th-otx-row { border-top-color: #14532d; }
+    .th-otx-ext { font-size: 0.8rem; color: #94a3b8; }
+    .th-otx {
+        margin-bottom: 2rem;
+        padding: 1.25rem 1.35rem;
+        background: linear-gradient(145deg, #0f1f14 0%, #0f172a 100%);
+        border: 1px solid #166534;
+        border-radius: 12px;
+    }
+    .th-otx-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem; }
+    .th-otx-title { margin: 0; font-size: 1.05rem; color: #86efac; }
+    .th-otx-alert {
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        color: #e2e8f0;
+        background: rgba(34, 197, 94, 0.08);
+        border: 1px solid rgba(34, 197, 94, 0.35);
+    }
+    .th-otx-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem 1rem;
+        font-size: 0.8rem;
+        color: #94a3b8;
+        margin-bottom: 0.65rem;
+    }
+    .th-otx-cached { color: #86efac; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .th-otx-summary { font-size: 0.82rem; color: #cbd5e1; margin: 0 0 0.75rem; }
+    .th-otx-sec { margin-bottom: 0.65rem; font-size: 0.82rem; color: #94a3b8; }
+    .th-otx-sec summary { cursor: pointer; margin-bottom: 0.35rem; }
     .th-threatminer {
         margin-bottom: 2rem;
         padding: 1.25rem 1.35rem;
