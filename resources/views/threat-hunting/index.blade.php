@@ -457,14 +457,108 @@
                     }
                     $otxPulseCount = is_array($otxGeneral) ? (int) data_get($otxGeneral, 'pulse_info.count', count($otxPulses)) : 0;
                     $otxRep = is_array($otxGeneral) ? data_get($otxGeneral, 'reputation') : null;
+                    $otxRepInt = is_numeric($otxRep) ? (int) $otxRep : 0;
+                    $otxIocLabel = match ($otx['classified']['type'] ?? '') {
+                        'IPv4', 'IPv6' => 'adresse IP',
+                        'domain' => 'nom de domaine',
+                        'URL' => 'lien (URL)',
+                        'FileHash-MD5', 'FileHash-SHA1', 'FileHash-SHA256' => 'empreinte de fichier',
+                        'CVE' => 'référence de vulnérabilité',
+                        default => 'indicateur',
+                    };
+                    if ($otxPulseCount >= 30 || $otxRepInt >= 4) {
+                        $otxRisk = ['level' => 'critical', 'label' => 'Risque élevé', 'short' => 'Très largement signalé par la communauté.'];
+                    } elseif ($otxPulseCount >= 15 || $otxRepInt >= 2) {
+                        $otxRisk = ['level' => 'high', 'label' => 'Risque significatif', 'short' => 'Signalé dans de nombreux rapports de menace.'];
+                    } elseif ($otxPulseCount >= 5 || $otxRepInt >= 1) {
+                        $otxRisk = ['level' => 'medium', 'label' => 'Risque modéré', 'short' => 'Présent dans plusieurs sources ; mérite analyse.'];
+                    } elseif ($otxPulseCount > 0) {
+                        $otxRisk = ['level' => 'low', 'label' => 'Risque limité', 'short' => 'Peu de rapports publics ; rester prudent.'];
+                    } else {
+                        $otxRisk = ['level' => 'minimal', 'label' => 'Peu ou pas de consensus public', 'short' => 'Peu d’informations partagées sur cet élément dans OTX.'];
+                    }
+                    $otxBlob = '';
+                    foreach (array_slice($otxPulses, 0, 25) as $op) {
+                        if (is_array($op)) {
+                            $otxBlob .= ' '.strtolower(strip_tags(($op['name'] ?? '').' '.($op['description'] ?? '')));
+                        }
+                    }
+                    $otxThemes = [];
+                    if (str_contains($otxBlob, 'ssh') || str_contains($otxBlob, 'brute')) {
+                        $otxThemes[] = 'tentatives d’intrusion automatiques (ex. cassage de mots de passe sur serveurs)';
+                    }
+                    if (str_contains($otxBlob, 'phish') || str_contains($otxBlob, 'courrier') || str_contains($otxBlob, 'email')) {
+                        $otxThemes[] = 'arnaques ou e-mails piégés';
+                    }
+                    if (str_contains($otxBlob, 'malware') || str_contains($otxBlob, 'ransom') || str_contains($otxBlob, 'trojan')) {
+                        $otxThemes[] = 'logiciels malveillants';
+                    }
+                    if (str_contains($otxBlob, 'scan') || str_contains($otxBlob, 'honeypot') || str_contains($otxBlob, 'port')) {
+                        $otxThemes[] = 'reconnaissance ou scans automatiques (systèmes leurre)';
+                    }
+                    if (str_contains($otxBlob, 'spam') || str_contains($otxBlob, 'botnet')) {
+                        $otxThemes[] = 'spam ou réseaux d’ordinateurs compromis';
+                    }
                 @endphp
 
                 @if(is_array($otxGeneral))
+                    <div class="th-otx-exec" role="region" aria-label="Synthèse pour la direction">
+                        <div class="th-otx-exec-head">
+                            <h3 class="th-otx-exec-title">Synthèse — lecture direction</h3>
+                            <span class="th-otx-risk-badge th-otx-risk-{{ $otxRisk['level'] }}">{{ $otxRisk['label'] }}</span>
+                        </div>
+                        <p class="th-otx-exec-lead">
+                            Cet élément est une <strong>{{ $otxIocLabel }}</strong>
+                            (<code class="th-otx-exec-code">{{ data_get($otxGeneral, 'indicator', $otx['classified']['value'] ?? '—') }}</code>).
+                            @if($otxPulseCount > 0)
+                                Il apparaît dans <strong>{{ $otxPulseCount }}</strong> rapport{{ $otxPulseCount > 1 ? 's' : '' }} de menace partagé{{ $otxPulseCount > 1 ? 's' : '' }} par la communauté AlienVault OTX
+                                (des « pulses », soit des dossiers qui décrivent des attaques ou des comportements suspects).
+                                {{ $otxRisk['short'] }}
+                            @else
+                                Peu de rapports publics ne le citent pour l’instant ; cela ne veut pas dire « sans danger », seulement « moins documenté ».
+                            @endif
+                        </p>
+                        @if(count($otxThemes) > 0)
+                            <p class="th-otx-exec-themes">
+                                <strong>Thèmes souvent évoqués dans ces rapports :</strong>
+                                {{ implode(' · ', $otxThemes) }}.
+                            </p>
+                        @endif
+                        <div class="th-otx-exec-columns">
+                            <div class="th-otx-exec-col">
+                                <h4 class="th-otx-exec-sub">Ce que ça veut dire pour l’entreprise</h4>
+                                <ul class="th-otx-exec-ul">
+                                    @if($otxPulseCount >= 15)
+                                        <li><strong>Consensus fort :</strong> beaucoup d’acteurs indépendants ont identifié ce même élément dans des incidents — ce n’est pas une alerte isolée.</li>
+                                    @elseif($otxPulseCount > 0)
+                                        <li><strong>Signal crédible :</strong> l’élément est associé à des scénarios d’attaque documentés.</li>
+                                    @else
+                                        <li><strong>Visibilité limitée</strong> dans les bases communautaires ; l’équipe technique doit compléter avec vos propres journaux.</li>
+                                    @endif
+                                    <li>Les rapports OTX sont <strong>indicatifs</strong> : ils aident à prioriser, pas à remplacer une analyse interne.</li>
+                                </ul>
+                            </div>
+                            <div class="th-otx-exec-col">
+                                <h4 class="th-otx-exec-sub">Décisions / suites possibles</h4>
+                                <ul class="th-otx-exec-ul">
+                                    @if(in_array($otxRisk['level'], ['critical', 'high'], true))
+                                        <li><strong>Bloquer</strong> cet élément aux pare-feu / accès réseau si ce n’est pas déjà fait.</li>
+                                        <li><strong>Vérifier</strong> s’il apparaît dans vos connexions ou journaux récents.</li>
+                                    @else
+                                        <li><strong>Évaluer</strong> avec l’équipe sécurité avant tout blocage large (faux positifs possibles).</li>
+                                    @endif
+                                    <li><strong>Informer</strong> la direction / RSSI si l’élément touche un système sensible ou des données personnelles.</li>
+                                    <li><strong>Conserver</strong> une trace (capture d’écran ou export) pour comité de crise ou audit.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="th-otx-readable">
-                        <h3 class="th-otx-readable-title">Vue lisible</h3>
+                        <h3 class="th-otx-readable-title">Détail — équipe technique</h3>
                         <div class="th-otx-kv-grid">
                             <div class="th-otx-kv">
-                                <span class="th-otx-k">Indicateur</span>
+                                <span class="th-otx-k">Indicateur (IOC)</span>
                                 <span class="th-otx-v"><code>{{ data_get($otxGeneral, 'indicator', $otx['classified']['value'] ?? '—') }}</code></span>
                             </div>
                             @if($otxRep !== null && $otxRep !== '')
@@ -493,17 +587,17 @@
                         </div>
 
                         @if($otxPulseCount > 0 || count($otxPulses) > 0)
-                            <h4 class="th-otx-pulses-title">Pulses associés ({{ $otxPulseCount ?: count($otxPulses) }})</h4>
-                            <p class="th-otx-pulses-intro">Rapports de la communauté Open Threat Exchange contenant cet IOC.</p>
+                            <h4 class="th-otx-pulses-title">Rapports communautaires ({{ $otxPulseCount ?: count($otxPulses) }})</h4>
+                            <p class="th-otx-pulses-intro">Chaque ligne est un <strong>rapport de menace</strong> publié par la communauté ; la colonne « Contexte » résume pourquoi cet indicateur y figure.</p>
                             <div class="table-container th-otx-table-wrap">
                                 <table class="data-table th-otx-pulse-table">
                                     <thead>
                                         <tr>
-                                            <th>Nom</th>
-                                            <th>Description</th>
-                                            <th>Création</th>
-                                            <th>Modif.</th>
-                                            <th></th>
+                                            <th>Titre du rapport</th>
+                                            <th>Contexte (résumé)</th>
+                                            <th>Publié</th>
+                                            <th>Mis à jour</th>
+                                            <th>Lien</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -516,7 +610,7 @@
                                                     <td class="th-otx-pulse-date">{{ $pulse['modified'] ?? '—' }}</td>
                                                     <td>
                                                         @if(!empty($pulse['id']))
-                                                            <a href="https://otx.alienvault.com/pulse/{{ $pulse['id'] }}" target="_blank" rel="noopener noreferrer" class="th-link">Pulse →</a>
+                                                            <a href="https://otx.alienvault.com/pulse/{{ $pulse['id'] }}" target="_blank" rel="noopener noreferrer" class="th-link">Voir le rapport →</a>
                                                         @else
                                                             —
                                                         @endif
@@ -550,8 +644,8 @@
                     </div>
                 @endif
 
-                <h4 class="th-otx-raw-title">Données brutes (JSON)</h4>
-                <p class="th-otx-raw-hint">À utiliser pour le debug ou les champs non affichés ci-dessus.</p>
+                <h4 class="th-otx-raw-title">Données techniques (JSON)</h4>
+                <p class="th-otx-raw-hint">Réservé aux équipes IT / sécurité — réponse brute de l’API.</p>
                 @foreach($otx['sections'] ?? [] as $secName => $secPayload)
                     <details class="th-otx-sec">
                         <summary>Section <code>{{ $secName }}</code>
@@ -707,6 +801,73 @@
     .th-oc-hint { margin: 0.5rem 0 0; font-size: 0.78rem; color: #94a3b8; }
     .th-oc-raw { margin-top: 1rem; font-size: 0.8rem; color: #94a3b8; }
     .th-oc-raw summary { cursor: pointer; margin-bottom: 0.5rem; }
+    .th-otx-exec {
+        margin-bottom: 1.25rem;
+        padding: 1.15rem 1.35rem;
+        background: linear-gradient(160deg, #1a2e24 0%, #0f172a 100%);
+        border: 1px solid #2d5a45;
+        border-radius: 12px;
+        border-left: 4px solid #34d399;
+    }
+    .th-otx-exec-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
+    }
+    .th-otx-exec-title { margin: 0; font-size: 1.05rem; color: #ecfdf5; font-weight: 700; }
+    .th-otx-risk-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 0.35rem 0.65rem;
+        border-radius: 999px;
+    }
+    .th-otx-risk-critical { background: rgba(239, 68, 68, 0.25); color: #fecaca; border: 1px solid rgba(239, 68, 68, 0.45); }
+    .th-otx-risk-high { background: rgba(249, 115, 22, 0.2); color: #fdba74; border: 1px solid rgba(249, 115, 22, 0.4); }
+    .th-otx-risk-medium { background: rgba(234, 179, 8, 0.15); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.35); }
+    .th-otx-risk-low { background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.35); }
+    .th-otx-risk-minimal { background: rgba(100, 116, 139, 0.25); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.4); }
+    .th-otx-exec-lead {
+        margin: 0 0 0.85rem;
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: #e2e8f0;
+    }
+    .th-otx-exec-code { font-size: 0.88em; color: #a7f3d0; }
+    .th-otx-exec-themes {
+        margin: 0 0 1rem;
+        padding: 0.65rem 0.85rem;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        color: #d1fae5;
+    }
+    .th-otx-exec-columns {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.25rem;
+    }
+    .th-otx-exec-sub {
+        margin: 0 0 0.5rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #6ee7b7;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .th-otx-exec-ul {
+        margin: 0;
+        padding-left: 1.15rem;
+        color: #cbd5e1;
+        font-size: 0.86rem;
+        line-height: 1.55;
+    }
+    .th-otx-exec-ul li { margin-bottom: 0.4rem; }
     .th-otx-row { border-top-color: #14532d; }
     .th-otx-ext { font-size: 0.8rem; color: #94a3b8; }
     .th-otx {
