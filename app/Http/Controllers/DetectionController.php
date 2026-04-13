@@ -92,6 +92,90 @@ class DetectionController extends Controller
         return view('detections.alerts', compact('alerts', 'statuses', 'severities', 'categories', 'stats'));
     }
 
+    /**
+     * Vue « Attack Events » : synthèse graphique + tableau événements (données SecurityAlert).
+     */
+    public function alertsAttackEvents(Request $request)
+    {
+        $range = $request->get('range', '7');
+        $days = match ((string) $range) {
+            '1' => 1,
+            '30' => 30,
+            '90' => 90,
+            default => 7,
+        };
+        $from = now()->subDays($days);
+
+        $categoryLabels = DetectionRule::getCategories();
+
+        $topAttackTypes = SecurityAlert::query()
+            ->where('security_alerts.created_at', '>=', $from)
+            ->join('detection_rules', 'detection_rules.id', '=', 'security_alerts.detection_rule_id')
+            ->selectRaw('detection_rules.category as category, COUNT(*) as cnt')
+            ->groupBy('detection_rules.category')
+            ->orderByDesc('cnt')
+            ->limit(5)
+            ->get()
+            ->map(fn ($row) => [
+                'label' => $categoryLabels[$row->category] ?? $row->category,
+                'count' => (int) $row->cnt,
+            ]);
+
+        if ($topAttackTypes->isEmpty()) {
+            $topAttackTypes = collect([
+                ['label' => 'Aucune donnée', 'count' => 0],
+            ]);
+        }
+
+        $hotEvents = SecurityAlert::query()
+            ->where('security_alerts.created_at', '>=', $from)
+            ->join('detection_rules', 'detection_rules.id', '=', 'security_alerts.detection_rule_id')
+            ->selectRaw('detection_rules.name as name, COUNT(*) as cnt')
+            ->groupBy('detection_rules.name')
+            ->orderByDesc('cnt')
+            ->limit(12)
+            ->get();
+
+        $maxHot = max(1, (int) $hotEvents->max('cnt'));
+
+        $eventsQuery = SecurityAlert::with('rule')
+            ->where('created_at', '>=', $from)
+            ->orderByDesc('last_seen');
+
+        if ($request->filled('q')) {
+            $term = $request->q;
+            $eventsQuery->where(function ($qry) use ($term) {
+                $qry->where('title', 'like', '%'.$term.'%')
+                    ->orWhere('description', 'like', '%'.$term.'%')
+                    ->orWhere('source_ip', 'like', '%'.$term.'%')
+                    ->orWhere('target_ip', 'like', '%'.$term.'%')
+                    ->orWhere('affected_asset', 'like', '%'.$term.'%');
+            });
+        }
+
+        $events = $eventsQuery->paginate(50)->withQueryString();
+
+        $sourceIps = $events->getCollection()->pluck('source_ip')->filter()->unique()->values();
+        $blockedSet = BlockedIp::query()
+            ->whereIn('ip_address', $sourceIps)
+            ->where('is_active', true)
+            ->where(function ($q) {
+                $q->whereNull('blocked_until')->orWhere('blocked_until', '>', now());
+            })
+            ->pluck('ip_address')
+            ->flip();
+
+        return view('detections.alerts-attack-events', compact(
+            'days',
+            'range',
+            'topAttackTypes',
+            'hotEvents',
+            'maxHot',
+            'events',
+            'blockedSet'
+        ));
+    }
+
     public function showAlert(SecurityAlert $alert)
     {
         $alert->load(['rule', 'assignedUser', 'resolvedByUser']);

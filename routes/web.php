@@ -33,7 +33,8 @@ Route::middleware('auth')->group(function () {
     Route::patch('/detection/rules/{rule}/toggle', [DetectionController::class, 'toggleRule'])->name('detection.rules.toggle');
     Route::patch('/detection/rules/{rule}', [DetectionController::class, 'updateRule'])->name('detection.rules.update');
 
-    // Security Alerts
+    // Security Alerts (route statique avant le binding {alert})
+    Route::get('/detection/alerts/attack-events', [DetectionController::class, 'alertsAttackEvents'])->name('detection.alerts.attack-events');
     Route::get('/detection/alerts', [DetectionController::class, 'alerts'])->name('detection.alerts');
     Route::get('/detection/alerts/{alert}', [DetectionController::class, 'showAlert'])->name('detection.alerts.show');
     Route::patch('/detection/alerts/{alert}/status', [DetectionController::class, 'updateAlertStatus'])->name('detection.alerts.status');

@@ -6,6 +6,7 @@
 <div class="page-content">
     <div class="page-header">
         <h1 class="page-title">Security Alerts</h1>
+        @include('detections.partials.alerts-nav', ['activeTab' => 'list'])
     </div>
 
     <!-- Stats Cards -->
@@ -441,6 +442,42 @@
     background: rgba(34, 197, 94, 0.2);
     border: 1px solid rgba(34, 197, 94, 0.3);
     color: #22c55e;
+}
+
+.sa-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.75rem;
+}
+.sa-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    color: #94a3b8;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.sa-tab:hover { color: #e2e8f0; background: rgba(0, 212, 255, 0.06); }
+.sa-tab.active {
+    color: #f8fafc;
+    background: linear-gradient(90deg, rgba(0, 212, 255, 0.15), rgba(59, 130, 246, 0.1));
+    border-color: rgba(0, 212, 255, 0.35);
+    box-shadow: inset 3px 0 0 #00d4ff;
+}
+.sa-tab-pill {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.12rem 0.4rem;
+    border-radius: 4px;
+    background: rgba(34, 197, 94, 0.2);
+    color: #86efac;
 }
 </style>
 @endsection
