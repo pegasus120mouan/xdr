@@ -244,8 +244,46 @@ class MonitorController extends Controller
             $arcs[] = [
                 'path' => sprintf('M %.2f,%.2f Q %.2f,%.2f %.2f,%.2f', $sx, $sy, $mx, $my, $hx, $hy),
                 'severity' => $alert->severity,
+                'sx' => $sx,
+                'sy' => $sy,
+                'country' => $geo['name'],
+                'code' => $code,
+                'ip' => $ip,
             ];
         }
+
+        $arcs = array_slice($arcs, 0, 40);
+
+        $originByCode = [];
+        foreach ($arcs as $a) {
+            $c = $a['code'];
+            if (! isset($originByCode[$c])) {
+                $originByCode[$c] = [
+                    'name' => $a['country'],
+                    'code' => $c,
+                    'sx' => [],
+                    'sy' => [],
+                    'ips' => [],
+                ];
+            }
+            $originByCode[$c]['sx'][] = $a['sx'];
+            $originByCode[$c]['sy'][] = $a['sy'];
+            $originByCode[$c]['ips'][] = $a['ip'];
+        }
+        $originMarkers = [];
+        foreach ($originByCode as $row) {
+            $n = count($row['sx']);
+            $ips = array_values(array_unique($row['ips']));
+            $originMarkers[] = [
+                'name' => $row['name'],
+                'code' => $row['code'],
+                'sx' => $n > 0 ? array_sum($row['sx']) / $n : 0,
+                'sy' => $n > 0 ? array_sum($row['sy']) / $n : 0,
+                'ip_count' => count($ips),
+                'ips_preview' => array_slice($ips, 0, 4),
+            ];
+        }
+        usort($originMarkers, fn ($a, $b) => $b['ip_count'] <=> $a['ip_count']);
 
         uasort($countryAgg, fn ($a, $b) => $b['count'] <=> $a['count']);
         $sourceCountries = array_values($countryAgg);
@@ -325,7 +363,8 @@ class MonitorController extends Controller
             'attackTypes' => $attackTypes,
             'topTargets' => $topTargets,
             'recentRows' => $recentRows,
-            'arcs' => array_slice($arcs, 0, 40),
+            'arcs' => $arcs,
+            'originMarkers' => $originMarkers,
         ]);
     }
 

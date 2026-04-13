@@ -166,6 +166,7 @@
         background:
             radial-gradient(ellipse 80% 60% at 50% 45%, rgba(30, 64, 120, 0.35) 0%, transparent 55%),
             linear-gradient(180deg, #050d1c 0%, #0a1628 100%);
+        isolation: isolate;
     }
 
     .amap-map-inner::before {
@@ -213,26 +214,186 @@
         text-decoration: underline;
     }
 
-    .amap-arc {
+    .amap-arc.amap-arc--visible {
         fill: none;
         stroke-linecap: round;
-        stroke-width: 1.4;
-        opacity: 0.85;
+        stroke-width: 1.5;
+        opacity: 0.88;
         stroke-dasharray: 8 6;
         animation: amap-dash 2.8s linear infinite;
+        pointer-events: none;
+        transition: stroke-width 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
     }
 
-    .amap-arc--critical,
-    .amap-arc--high { stroke: #fb923c; filter: drop-shadow(0 0 4px rgba(251, 146, 60, 0.6)); }
-    .amap-arc--medium { stroke: #fbbf24; filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.45)); }
-    .amap-arc--low { stroke: #fcd34d; opacity: 0.55; }
+    .amap-arc-hit {
+        fill: none;
+        stroke: transparent;
+        stroke-width: 16;
+        stroke-linecap: round;
+        pointer-events: stroke;
+        cursor: pointer;
+    }
+
+    .amap-flow--critical .amap-arc--visible,
+    .amap-flow--high .amap-arc--visible { stroke: #fb923c; filter: drop-shadow(0 0 4px rgba(251, 146, 60, 0.55)); }
+    .amap-flow--medium .amap-arc--visible { stroke: #fbbf24; filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.4)); }
+    .amap-flow--low .amap-arc--visible { stroke: #fcd34d; opacity: 0.62; filter: drop-shadow(0 0 2px rgba(252, 211, 77, 0.35)); }
+
+    .amap-flow:hover .amap-arc--visible,
+    .amap-flow.is-highlighted .amap-arc--visible {
+        stroke-width: 2.6;
+        opacity: 1;
+        filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.85)) !important;
+    }
+
+    .amap-flow.is-dimmed .amap-arc--visible {
+        opacity: 0.18;
+        filter: none !important;
+    }
 
     @keyframes amap-dash {
         to { stroke-dashoffset: -28; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-        .amap-arc { animation: none; stroke-dasharray: none; }
+        .amap-arc.amap-arc--visible { animation: none; stroke-dasharray: none; }
+    }
+
+    .amap-origin {
+        cursor: pointer;
+        pointer-events: all;
+        transition: opacity 0.2s ease, filter 0.2s ease;
+    }
+
+    .amap-origin:hover,
+    .amap-origin.is-highlighted {
+        filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.45));
+    }
+
+    .amap-origin-lbl {
+        font-size: 11px;
+        font-weight: 600;
+        fill: #f8fafc;
+        paint-order: stroke fill;
+        stroke: rgba(3, 7, 18, 0.92);
+        stroke-width: 3.5px;
+        stroke-linejoin: round;
+        pointer-events: none;
+    }
+
+    .amap-origin-sub {
+        font-size: 9px;
+        font-weight: 500;
+        fill: #94a3b8;
+        paint-order: stroke fill;
+        stroke: rgba(3, 7, 18, 0.92);
+        stroke-width: 3px;
+        pointer-events: none;
+    }
+
+    .amap-origin-core {
+        transition: stroke 0.2s ease, fill 0.2s ease;
+    }
+
+    .amap-origin:hover .amap-origin-core,
+    .amap-origin.is-highlighted .amap-origin-core {
+        fill: #1e3a5f;
+        stroke: #38bdf8;
+        stroke-width: 2;
+    }
+
+    .amap-origin-ring {
+        animation: amap-origin-pulse 2.2s ease-in-out infinite;
+        transform-origin: center;
+        transform-box: fill-box;
+    }
+
+    @keyframes amap-origin-pulse {
+        0%, 100% { opacity: 0.22; }
+        50% { opacity: 0.55; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .amap-origin-ring { animation: none; opacity: 0.35; }
+    }
+
+    .amap-origin.is-dimmed {
+        opacity: 0.22;
+    }
+
+    .amap-origin.is-dimmed .amap-origin-lbl,
+    .amap-origin.is-dimmed .amap-origin-sub {
+        opacity: 0.35;
+    }
+
+    .amap-tip {
+        position: absolute;
+        z-index: 30;
+        min-width: 200px;
+        max-width: 280px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: linear-gradient(165deg, rgba(22, 32, 52, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+        border: 1px solid rgba(56, 189, 248, 0.28);
+        box-shadow:
+            0 0 0 1px rgba(0, 0, 0, 0.35),
+            0 16px 40px rgba(0, 0, 0, 0.55);
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    .amap-tip.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .amap-tip__title {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #f1f5f9;
+        margin: 0 0 6px;
+        line-height: 1.35;
+    }
+
+    .amap-tip__meta {
+        font-size: 0.72rem;
+        color: #94a3b8;
+        line-height: 1.45;
+        margin: 0;
+    }
+
+    .amap-tip__meta strong {
+        color: #cbd5e1;
+        font-weight: 600;
+    }
+
+    .amap-tip__sev {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: capitalize;
+    }
+
+    .amap-tip__sev--critical,
+    .amap-tip__sev--high { background: rgba(248, 113, 113, 0.2); color: #fca5a5; }
+    .amap-tip__sev--medium { background: rgba(251, 146, 60, 0.2); color: #fdba74; }
+    .amap-tip__sev--low { background: rgba(74, 222, 128, 0.15); color: #86efac; }
+
+    .amap-src-item--interactive {
+        cursor: pointer;
+        border-radius: 8px;
+        margin: 0 -6px;
+        padding: 4px 6px;
+        transition: background 0.15s ease;
+    }
+
+    .amap-src-item--interactive:hover {
+        background: rgba(56, 189, 248, 0.08);
     }
 
     .amap-home {
@@ -402,12 +563,51 @@
                         preserveAspectRatio="xMidYMid slice"
                     />
                     @foreach($arcs as $arc)
-                        <path class="amap-arc amap-arc--{{ $arc['severity'] ?? 'medium' }}" d="{{ $arc['path'] }}" filter="url(#amap-glow)" />
+                        @php
+                            $sev = in_array($arc['severity'] ?? '', ['critical', 'high', 'medium', 'low'], true)
+                                ? $arc['severity']
+                                : 'medium';
+                        @endphp
+                        <g
+                            class="amap-flow amap-flow--{{ $sev }}"
+                            data-amap-flow="1"
+                            data-code="{{ $arc['code'] }}"
+                            data-country="{{ $arc['country'] }}"
+                            data-ip="{{ $arc['ip'] }}"
+                            data-severity="{{ $sev }}"
+                        >
+                            <path class="amap-arc amap-arc--visible amap-arc--{{ $sev }}" d="{{ $arc['path'] }}" filter="url(#amap-glow)" />
+                            <path class="amap-arc-hit" d="{{ $arc['path'] }}" vector-effect="non-scaling-stroke" />
+                        </g>
+                    @endforeach
+                    @foreach($originMarkers as $om)
+                        @php $omFlag = $flagEmoji($om['code']); @endphp
+                        <g
+                            class="amap-origin"
+                            transform="translate({{ round($om['sx'], 2) }}, {{ round($om['sy'], 2) }})"
+                            data-amap-origin="1"
+                            data-code="{{ $om['code'] }}"
+                            data-country="{{ $om['name'] }}"
+                            data-ip-count="{{ (int) $om['ip_count'] }}"
+                            data-ips="{{ implode(' · ', $om['ips_preview']) }}"
+                        >
+                            <circle class="amap-origin-ring" r="12" cx="0" cy="0" fill="none" stroke="#fb923c" stroke-width="0.75" />
+                            <circle class="amap-origin-core" r="5" cx="0" cy="0" />
+                            <text class="amap-origin-lbl" x="0" y="-14" text-anchor="middle">{{ $omFlag }} {{ \Illuminate\Support\Str::limit($om['name'], 22) }}</text>
+                            @if($om['ip_count'] > 1)
+                                <text class="amap-origin-sub" x="0" y="17" text-anchor="middle">{{ $om['ip_count'] }} IP distinctes</text>
+                            @endif
+                        </g>
                     @endforeach
                     <circle class="amap-home-pulse" cx="{{ $homeXY['x'] }}" cy="{{ $homeXY['y'] }}" r="14" fill="none" stroke="#38bdf8" stroke-width="1" />
                     <circle class="amap-home" cx="{{ $homeXY['x'] }}" cy="{{ $homeXY['y'] }}" r="7" fill="#0ea5e9" stroke="#e0f2fe" stroke-width="1.5" />
                     <text class="amap-home-label" x="{{ $homeXY['x'] }}" y="{{ $homeXY['y'] + 22 }}" text-anchor="middle">{{ \Illuminate\Support\Str::limit($home['label'], 18) }}</text>
                 </svg>
+                <div id="amap-tip" class="amap-tip" role="tooltip" hidden>
+                    <p class="amap-tip__title" id="amap-tip-title"></p>
+                    <p class="amap-tip__meta" id="amap-tip-meta"></p>
+                    <span class="amap-tip__sev" id="amap-tip-sev" hidden></span>
+                </div>
             </div>
             <p class="amap-map-credit">
                 Fond carte :
@@ -422,7 +622,7 @@
             @else
                 <div class="amap-src-list">
                     @foreach($sourceCountries as $src)
-                        <div>
+                        <div class="amap-src-item--interactive" data-amap-code="{{ $src['code'] }}">
                             <div class="amap-src-item">
                                 <span class="amap-src-flag" title="{{ $src['code'] }}">{{ $flagEmoji($src['code']) }}</span>
                                 <span class="amap-src-name">{{ $src['name'] }}</span>
@@ -529,6 +729,131 @@
     }
     tick();
     setInterval(tick, 1000);
+})();
+
+(function () {
+    var wrap = document.querySelector('.amap-map-inner');
+    var tip = document.getElementById('amap-tip');
+    var tipTitle = document.getElementById('amap-tip-title');
+    var tipMeta = document.getElementById('amap-tip-meta');
+    var tipSev = document.getElementById('amap-tip-sev');
+    if (!wrap || !tip || !tipTitle || !tipMeta || !tipSev) return;
+
+    var hideTimer = null;
+    var highlightCode = null;
+
+    function escapeHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function placeTip(clientX, clientY) {
+        var r = wrap.getBoundingClientRect();
+        var x = clientX - r.left + 12;
+        var y = clientY - r.top + 12;
+        tip.style.left = x + 'px';
+        tip.style.top = y + 'px';
+        requestAnimationFrame(function () {
+            var tw = tip.offsetWidth;
+            var th = tip.offsetHeight;
+            if (x + tw > r.width - 10) x = Math.max(10, r.width - tw - 10);
+            if (y + th > r.height - 10) y = Math.max(10, r.height - th - 10);
+            tip.style.left = x + 'px';
+            tip.style.top = y + 'px';
+        });
+    }
+
+    function showTip() {
+        tip.removeAttribute('hidden');
+        requestAnimationFrame(function () {
+            tip.classList.add('is-visible');
+        });
+    }
+
+    function hideTip() {
+        tip.classList.remove('is-visible');
+        setTimeout(function () {
+            tip.setAttribute('hidden', '');
+        }, 200);
+    }
+
+    function bindFlow(g) {
+        g.addEventListener('mouseenter', function (e) {
+            clearTimeout(hideTimer);
+            var country = g.getAttribute('data-country') || '';
+            var sev = g.getAttribute('data-severity') || 'medium';
+            tipTitle.textContent = g.getAttribute('data-ip') || '—';
+            tipMeta.innerHTML = '<strong>Provenance</strong> · ' + escapeHtml(country);
+            tipSev.hidden = false;
+            tipSev.textContent = sev;
+            tipSev.className = 'amap-tip__sev amap-tip__sev--' + sev;
+            showTip();
+            placeTip(e.clientX, e.clientY);
+        });
+        g.addEventListener('mousemove', function (e) {
+            if (!tip.hasAttribute('hidden')) placeTip(e.clientX, e.clientY);
+        });
+        g.addEventListener('mouseleave', function () {
+            hideTimer = setTimeout(hideTip, 100);
+        });
+    }
+
+    function bindOrigin(g) {
+        g.addEventListener('mouseenter', function (e) {
+            clearTimeout(hideTimer);
+            var country = g.getAttribute('data-country') || '';
+            var cnt = g.getAttribute('data-ip-count') || '0';
+            var ips = g.getAttribute('data-ips') || '';
+            tipTitle.textContent = country;
+            var html = '<strong>Sources</strong> · ' + escapeHtml(String(cnt)) + ' adresse(s) distincte(s)';
+            if (ips) html += '<br><span style="color:#64748b;font-size:0.68rem;">' + escapeHtml(ips) + '</span>';
+            tipMeta.innerHTML = html;
+            tipSev.hidden = true;
+            showTip();
+            placeTip(e.clientX, e.clientY);
+        });
+        g.addEventListener('mousemove', function (e) {
+            if (!tip.hasAttribute('hidden')) placeTip(e.clientX, e.clientY);
+        });
+        g.addEventListener('mouseleave', function () {
+            hideTimer = setTimeout(hideTip, 100);
+        });
+    }
+
+    wrap.querySelectorAll('[data-amap-flow="1"]').forEach(bindFlow);
+    wrap.querySelectorAll('[data-amap-origin="1"]').forEach(bindOrigin);
+
+    function applyHighlight() {
+        var flows = wrap.querySelectorAll('[data-amap-flow="1"]');
+        var origins = wrap.querySelectorAll('[data-amap-origin="1"]');
+        if (!highlightCode) {
+            flows.forEach(function (el) { el.classList.remove('is-highlighted', 'is-dimmed'); });
+            origins.forEach(function (el) { el.classList.remove('is-highlighted', 'is-dimmed'); });
+            return;
+        }
+        flows.forEach(function (el) {
+            var match = el.getAttribute('data-code') === highlightCode;
+            el.classList.toggle('is-highlighted', match);
+            el.classList.toggle('is-dimmed', !match);
+        });
+        origins.forEach(function (el) {
+            var match = el.getAttribute('data-code') === highlightCode;
+            el.classList.toggle('is-highlighted', match);
+            el.classList.toggle('is-dimmed', !match);
+        });
+    }
+
+    document.querySelectorAll('[data-amap-code]').forEach(function (row) {
+        row.addEventListener('mouseenter', function () {
+            highlightCode = row.getAttribute('data-amap-code');
+            applyHighlight();
+        });
+        row.addEventListener('mouseleave', function () {
+            highlightCode = null;
+            applyHighlight();
+        });
+    });
 })();
 </script>
 @endpush
