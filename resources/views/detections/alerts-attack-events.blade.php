@@ -99,10 +99,10 @@
                                 @if($geo && !empty($geo['flag_url']))
                                     <span class="ae-loc-inner" title="{{ $geo['country'] }} ({{ $geo['code'] }})">
                                         <img src="{{ $geo['flag_url'] }}" alt="" width="20" height="13" class="ae-flag" loading="lazy" decoding="async">
-                                        <span class="ae-country">{{ Str::limit($geo['country'], 28) }}</span>
+                                        <span class="ae-country">{{ Str::limit($geo['country'], 40) }}</span>
                                     </span>
                                 @elseif($geo)
-                                    <span class="ae-country" title="{{ $geo['country'] }}">{{ Str::limit($geo['country'], 32) }}</span>
+                                    <span class="ae-country" title="{{ $geo['country'] }}">{{ Str::limit($geo['country'], 44) }}</span>
                                 @else
                                     <span class="ae-loc-placeholder">—</span>
                                 @endif
@@ -294,11 +294,46 @@
         margin-bottom: 0.75rem;
         cursor: not-allowed;
     }
-    .ae-table-scroll { overflow-x: auto; }
-    .ae-data-table { font-size: 0.8rem; }
-    .ae-data-table th, .ae-data-table td { white-space: nowrap; }
-    .ae-data-table .ae-desc { white-space: normal; max-width: 280px; }
-    .ae-mono { font-family: ui-monospace, monospace; font-size: 0.8rem; color: #00d4ff; }
+    .ae-table-scroll {
+        overflow-x: auto;
+        margin: 0 -0.35rem;
+        padding: 0.35rem 0.35rem 0.5rem;
+    }
+    .ae-data-table {
+        font-size: 0.875rem;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .ae-data-table th,
+    .ae-data-table td {
+        padding: 0.75rem 1.05rem;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .ae-data-table thead th {
+        padding-top: 0.9rem;
+        padding-bottom: 0.9rem;
+        font-size: 0.8rem;
+        letter-spacing: 0.02em;
+    }
+    .ae-data-table .ae-loc,
+    .ae-data-table .ae-desc,
+    .ae-data-table .ae-ops {
+        white-space: normal;
+    }
+    .ae-data-table th:nth-child(2),
+    .ae-data-table td:nth-child(2) {
+        min-width: 9.5rem;
+    }
+    .ae-data-table th:nth-child(3),
+    .ae-data-table td.ae-loc {
+        min-width: 12.5rem;
+    }
+    .ae-data-table .ae-desc {
+        max-width: 22rem;
+        line-height: 1.45;
+    }
+    .ae-mono { font-family: ui-monospace, monospace; font-size: 0.84rem; color: #00d4ff; }
     .ae-asset { font-size: 0.72rem; color: #94a3b8; margin-top: 0.2rem; }
     .ae-sev {
         padding: 0.15rem 0.45rem;
@@ -320,9 +355,9 @@
     .ae-loc-placeholder { color: #475569; }
     .ae-loc-inner {
         display: inline-flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 0.45rem;
-        max-width: 200px;
+        gap: 0.5rem 0.7rem;
     }
     .ae-flag {
         flex-shrink: 0;
@@ -330,7 +365,7 @@
         box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
         object-fit: cover;
     }
-    .ae-country { font-size: 0.78rem; color: #cbd5e1; line-height: 1.25; }
+    .ae-country { font-size: 0.82rem; color: #cbd5e1; line-height: 1.35; }
     .th-link { color: #38bdf8; font-size: 0.78rem; }
 </style>
 @endpush
