@@ -13,4 +13,7 @@
         Détails
         <span class="sa-tab-pill">Attack Events</span>
     </a>
+    <a href="{{ route('detection.audit-log') }}" class="sa-tab {{ ($active ?? '') === 'audit' ? 'active' : '' }}">
+        Journal d’audit
+    </a>
 </nav>

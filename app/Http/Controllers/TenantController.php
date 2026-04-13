@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\TenantGroup;
 use App\Models\Asset;
+use App\Models\TenantGroup;
+use App\Support\SecurityAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -45,7 +46,7 @@ class TenantController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        $validated['slug'] = Str::slug($validated['name']) . '-' . Str::random(4);
+        $validated['slug'] = Str::slug($validated['name']).'-'.Str::random(4);
 
         TenantGroup::create($validated);
 
@@ -71,6 +72,9 @@ class TenantController extends Controller
             return back()->with('error', 'Cannot delete system group.');
         }
 
+        $gid = $group->id;
+        $gname = $group->name;
+
         // Move assets to uncategorized
         $uncategorized = TenantGroup::where('slug', 'uncategorized')->first();
         if ($uncategorized) {
@@ -81,6 +85,11 @@ class TenantController extends Controller
         TenantGroup::where('parent_id', $group->id)->update(['parent_id' => $group->parent_id]);
 
         $group->delete();
+
+        SecurityAudit::log('tenant_group.deleted', [
+            'group_id' => $gid,
+            'name' => $gname,
+        ], TenantGroup::class, $gid);
 
         return back()->with('success', 'Group deleted successfully.');
     }
@@ -93,7 +102,7 @@ class TenantController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('hostname', 'like', "%{$search}%")
-                  ->orWhere('ip_address', 'like', "%{$search}%");
+                    ->orWhere('ip_address', 'like', "%{$search}%");
             });
         }
 
@@ -134,6 +143,7 @@ class TenantController extends Controller
     {
         $asset->load('tenantGroup');
         $groups = TenantGroup::orderBy('name')->get();
+
         return view('tenants.asset-detail', compact('asset', 'groups'));
     }
 
@@ -166,6 +176,7 @@ class TenantController extends Controller
     public function getTreeJson()
     {
         $tree = TenantGroup::getTree();
+
         return response()->json($this->buildTreeJson($tree));
     }
 
@@ -182,6 +193,7 @@ class TenantController extends Controller
             ];
             $result[] = $item;
         }
+
         return $result;
     }
 }

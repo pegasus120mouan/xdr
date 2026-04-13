@@ -7,6 +7,7 @@ use App\Models\DetectionRule;
 use App\Models\LoginAttempt;
 use App\Models\SecurityAlert;
 use App\Services\IpGeolocationService;
+use App\Support\SecurityAudit;
 use Illuminate\Http\Request;
 
 class DetectionController extends Controller
@@ -28,6 +29,11 @@ class DetectionController extends Controller
     {
         if ($rule->is_system) {
             $rule->update(['is_active' => ! $rule->is_active]);
+            SecurityAudit::log('detection_rule.toggled', [
+                'rule_id' => $rule->id,
+                'name' => $rule->name,
+                'is_active' => $rule->is_active,
+            ], DetectionRule::class, $rule->id);
         }
 
         return back()->with('success', 'Rule status updated successfully.');
@@ -46,6 +52,14 @@ class DetectionController extends Controller
             'time_window' => $validated['time_window'],
             'severity' => $validated['severity'],
         ]);
+
+        SecurityAudit::log('detection_rule.updated', [
+            'rule_id' => $rule->id,
+            'name' => $rule->name,
+            'threshold' => $validated['threshold'],
+            'time_window' => $validated['time_window'],
+            'severity' => $validated['severity'],
+        ], DetectionRule::class, $rule->id);
 
         return back()->with('success', 'Rule updated successfully.');
     }
@@ -199,6 +213,8 @@ class DetectionController extends Controller
             'resolution_notes' => 'nullable|string',
         ]);
 
+        $before = $alert->status;
+
         $data = ['status' => $validated['status']];
 
         if (in_array($validated['status'], ['resolved', 'false_positive'])) {
@@ -208,6 +224,12 @@ class DetectionController extends Controller
         }
 
         $alert->update($data);
+
+        SecurityAudit::log('security_alert.status_changed', [
+            'from' => $before,
+            'to' => $validated['status'],
+            'resolution_notes' => $validated['resolution_notes'] ?? null,
+        ], SecurityAlert::class, $alert->id);
 
         return back()->with('success', 'Alert status updated.');
     }
@@ -225,6 +247,10 @@ class DetectionController extends Controller
     {
         $blockedIp->update(['is_active' => false]);
 
+        SecurityAudit::log('blocked_ip.deactivated', [
+            'ip_address' => $blockedIp->ip_address,
+        ], BlockedIp::class, $blockedIp->id);
+
         return back()->with('success', 'IP unblocked successfully.');
     }
 
@@ -237,13 +263,20 @@ class DetectionController extends Controller
             'security_alert_id' => 'nullable|integer|exists:security_alerts,id',
         ]);
 
-        BlockedIp::block(
+        $blocked = BlockedIp::block(
             $validated['ip_address'],
             $validated['reason'],
             $validated['security_alert_id'] ?? null,
             auth()->id(),
             $validated['duration'] ?? null
         );
+
+        SecurityAudit::log('blocked_ip.created', [
+            'ip_address' => $validated['ip_address'],
+            'reason' => $validated['reason'],
+            'security_alert_id' => $validated['security_alert_id'] ?? null,
+            'duration_hours' => $validated['duration'] ?? null,
+        ], BlockedIp::class, $blocked->id);
 
         return back()->with('success', 'IP ajoutée à la liste noire.');
     }

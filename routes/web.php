@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AgentController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DetectionController;
 use App\Http\Controllers\MonitorController;
@@ -26,12 +27,18 @@ Route::middleware('auth')->group(function () {
     Route::get('/monitor/attack-map', [MonitorController::class, 'attackMap'])->name('monitor.attack-map');
 
     Route::get('/monitor/configure', [MonitorController::class, 'configure'])->name('monitor.configure');
-    Route::post('/monitor/configure', [MonitorController::class, 'saveConfigure'])->name('monitor.configure.save');
+    Route::post('/monitor/configure', [MonitorController::class, 'saveConfigure'])
+        ->middleware('admin')
+        ->name('monitor.configure.save');
 
     // Detection Rules
     Route::get('/detection/rules', [DetectionController::class, 'rules'])->name('detection.rules');
-    Route::patch('/detection/rules/{rule}/toggle', [DetectionController::class, 'toggleRule'])->name('detection.rules.toggle');
-    Route::patch('/detection/rules/{rule}', [DetectionController::class, 'updateRule'])->name('detection.rules.update');
+    Route::patch('/detection/rules/{rule}/toggle', [DetectionController::class, 'toggleRule'])
+        ->middleware('admin')
+        ->name('detection.rules.toggle');
+    Route::patch('/detection/rules/{rule}', [DetectionController::class, 'updateRule'])
+        ->middleware('admin')
+        ->name('detection.rules.update');
 
     // Security Alerts (route statique avant le binding {alert})
     Route::get('/detection/alerts/attack-events', [DetectionController::class, 'alertsAttackEvents'])->name('detection.alerts.attack-events');
@@ -39,10 +46,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/detection/alerts/{alert}', [DetectionController::class, 'showAlert'])->name('detection.alerts.show');
     Route::patch('/detection/alerts/{alert}/status', [DetectionController::class, 'updateAlertStatus'])->name('detection.alerts.status');
 
+    Route::get('/detection/audit-log', [AuditLogController::class, 'index'])->name('detection.audit-log');
+
     // Blocked IPs
     Route::get('/detection/blocked-ips', [DetectionController::class, 'blockedIps'])->name('detection.blocked-ips');
     Route::post('/detection/blocked-ips', [DetectionController::class, 'blockIp'])->name('detection.blocked-ips.block');
-    Route::delete('/detection/blocked-ips/{blockedIp}', [DetectionController::class, 'unblockIp'])->name('detection.blocked-ips.unblock');
+    Route::delete('/detection/blocked-ips/{blockedIp}', [DetectionController::class, 'unblockIp'])
+        ->middleware('admin')
+        ->name('detection.blocked-ips.unblock');
 
     // Login Attempts
     Route::get('/detection/login-attempts', [DetectionController::class, 'loginAttempts'])->name('detection.login-attempts');
@@ -59,7 +70,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');
     Route::post('/tenants/groups', [TenantController::class, 'createGroup'])->name('tenants.groups.create');
     Route::patch('/tenants/groups/{group}', [TenantController::class, 'updateGroup'])->name('tenants.groups.update');
-    Route::delete('/tenants/groups/{group}', [TenantController::class, 'deleteGroup'])->name('tenants.groups.delete');
+    Route::delete('/tenants/groups/{group}', [TenantController::class, 'deleteGroup'])
+        ->middleware('admin')
+        ->name('tenants.groups.delete');
     Route::get('/tenants/assets', [TenantController::class, 'assets'])->name('tenants.assets');
     Route::get('/tenants/assets/{asset}', [TenantController::class, 'showAsset'])->name('tenants.assets.show');
     Route::patch('/tenants/assets/{asset}', [TenantController::class, 'updateAsset'])->name('tenants.assets.update');
@@ -72,5 +85,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/agents/{agent}', [AgentController::class, 'show'])->name('agents.show');
     Route::get('/agents/{agent}/logs', [AgentController::class, 'logs'])->name('agents.logs');
     Route::get('/agents/{agent}/install.sh', [AgentController::class, 'installScript'])->name('agents.install-script');
-    Route::delete('/agents/{agent}', [AgentController::class, 'delete'])->name('agents.delete');
+    Route::delete('/agents/{agent}', [AgentController::class, 'delete'])
+        ->middleware('admin')
+        ->name('agents.delete');
 });

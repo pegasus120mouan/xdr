@@ -160,6 +160,7 @@
                 <button class="btn btn-secondary btn-block">
                     🔄 Force Sync
                 </button>
+                @if(auth()->user()->isAdmin())
                 <form action="{{ route('agents.delete', $agent) }}" method="POST">
                     @csrf
                     @method('DELETE')
@@ -167,6 +168,7 @@
                         🗑️ Delete Agent
                     </button>
                 </form>
+                @endif
             </div>
         </div>
 

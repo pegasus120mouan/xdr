@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Admin APEX',
             'email' => 'admin@apex-xdr.com',
             'password' => bcrypt('Admin@2024!'),
+            'role' => User::ROLE_ADMIN,
         ]);
 
         $this->call([

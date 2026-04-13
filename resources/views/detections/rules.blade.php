@@ -51,6 +51,7 @@
                             </span>
                         </div>
                         <div class="rule-toggle">
+                            @if(auth()->user()->isAdmin())
                             <form action="{{ route('detection.rules.toggle', $rule) }}" method="POST">
                                 @csrf
                                 @method('PATCH')
@@ -59,6 +60,12 @@
                                     <span class="slider"></span>
                                 </label>
                             </form>
+                            @else
+                            <label class="switch" style="opacity:0.5;cursor:not-allowed;" title="Réservé administrateur">
+                                <input type="checkbox" {{ $rule->is_active ? 'checked' : '' }} disabled>
+                                <span class="slider"></span>
+                            </label>
+                            @endif
                         </div>
                     </div>
 
@@ -103,9 +110,11 @@
                     </div>
 
                     <div class="rule-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="editRule({{ $rule->id }}, {{ json_encode($rule) }})">
+                        @if(auth()->user()->isAdmin())
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="editRule({{ $rule->id }}, {{ json_encode($rule) }})">
                             ✏️ Edit
                         </button>
+                        @endif
                         <span class="rule-stats">
                             {{ $rule->alerts()->count() }} alerts triggered
                         </span>

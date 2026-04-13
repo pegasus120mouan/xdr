@@ -869,7 +869,7 @@
             </a>
             <div class="nav-submenu">
                 <a href="{{ route('detection.rules') }}" class="nav-item {{ request()->routeIs('detection.rules') ? 'active' : '' }}">Detection Rules</a>
-                <a href="{{ route('detection.alerts') }}" class="nav-item {{ request()->routeIs('detection.alerts*') ? 'active' : '' }}">Security Alerts <span class="badge new">NEW</span></a>
+                <a href="{{ route('detection.alerts') }}" class="nav-item {{ request()->routeIs(['detection.alerts*', 'detection.audit-log', 'detection.blocked-ips', 'detection.rules', 'detection.login-attempts']) ? 'active' : '' }}">Security Alerts <span class="badge new">NEW</span></a>
                 <a href="{{ route('detection.login-attempts') }}" class="nav-item {{ request()->routeIs('detection.login-attempts') ? 'active' : '' }}">Login Attempts</a>
                 <a href="{{ route('detection.blocked-ips') }}" class="nav-item {{ request()->routeIs('detection.blocked-ips') ? 'active' : '' }}">Blocked IPs</a>
                 <a href="#" class="nav-item">Security Logs</a>

@@ -76,7 +76,7 @@
                     <button class="btn btn-sm btn-secondary" onclick="editGroup({{ $selectedGroup->id }}, '{{ $selectedGroup->name }}')">
                         ✏️ Edit
                     </button>
-                    @if(!$selectedGroup->is_system)
+                    @if(!$selectedGroup->is_system && auth()->user()->isAdmin())
                     <form action="{{ route('tenants.groups.delete', $selectedGroup) }}" method="POST" style="display: inline;">
                         @csrf
                         @method('DELETE')

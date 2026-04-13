@@ -67,7 +67,7 @@
                         @endif
                     </td>
                     <td>
-                        @if($blocked->is_active)
+                        @if($blocked->is_active && auth()->user()->isAdmin())
                         <form action="{{ route('detection.blocked-ips.unblock', $blocked) }}" method="POST" style="display: inline;">
                             @csrf
                             @method('DELETE')
@@ -75,6 +75,8 @@
                                 Unblock
                             </button>
                         </form>
+                        @elseif($blocked->is_active)
+                            <span class="text-muted" style="font-size:0.75rem;color:#64748b;">Déblocage : admin</span>
                         @endif
                     </td>
                 </tr>

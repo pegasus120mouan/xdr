@@ -28,6 +28,9 @@
     @else
         <p class="mc-summary">{{ $monitoredCount }} machine(s) sélectionnée(s) sur {{ $assets->count() }}.</p>
 
+        @unless(auth()->user()->isAdmin())
+            <p class="mc-readonly-banner">Lecture seule — seul un <strong>administrateur</strong> peut modifier la sélection des actifs surveillés.</p>
+        @endunless
         <form action="{{ route('monitor.configure.save') }}" method="POST" id="monitor-config-form">
             @csrf
 
@@ -60,7 +63,8 @@
                                     <tr>
                                         <td>
                                             <input type="checkbox" name="monitored[]" value="{{ $asset->id }}" id="m-{{ $asset->id }}"
-                                                {{ $asset->is_monitored ? 'checked' : '' }} class="mc-check">
+                                                {{ $asset->is_monitored ? 'checked' : '' }} class="mc-check"
+                                                @unless(auth()->user()->isAdmin()) disabled @endunless>
                                         </td>
                                         <td>
                                             <label for="m-{{ $asset->id }}" class="mc-host">{{ $asset->hostname }}</label>
@@ -78,7 +82,9 @@
             @endforeach
 
             <div class="mc-actions">
+                @if(auth()->user()->isAdmin())
                 <button type="submit" class="mc-btn mc-btn--primary">Enregistrer la sélection</button>
+                @endif
                 <a href="{{ route('dashboard') }}" class="mc-btn mc-btn--ghost">Annuler</a>
             </div>
         </form>
@@ -86,6 +92,15 @@
 </div>
 
 <style>
+.mc-readonly-banner {
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    background: rgba(234, 179, 8, 0.08);
+    border: 1px solid rgba(234, 179, 8, 0.25);
+    border-radius: 8px;
+}
 .monitor-configure-page .card-like {
     background: #1a1f2e;
     border: 1px solid #2d3748;

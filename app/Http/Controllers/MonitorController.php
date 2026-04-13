@@ -8,6 +8,7 @@ use App\Models\DetectionRule;
 use App\Models\SecurityAlert;
 use App\Models\TenantGroup;
 use App\Support\AttackMapGeo;
+use App\Support\SecurityAudit;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -406,6 +407,11 @@ class MonitorController extends Controller
         if ($ids !== []) {
             Asset::whereIn('id', $ids)->update(['is_monitored' => true]);
         }
+
+        SecurityAudit::log('monitor.assets_monitored_updated', [
+            'monitored_asset_ids' => array_values($ids),
+            'count' => count($ids),
+        ]);
 
         return redirect()
             ->route('monitor.configure')

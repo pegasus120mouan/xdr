@@ -5,9 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Agent;
 use App\Models\AgentLog;
 use App\Models\TenantGroup;
-use App\Models\Asset;
+use App\Support\SecurityAudit;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class AgentController extends Controller
 {
@@ -57,7 +56,7 @@ class AgentController extends Controller
         $defaultLogTypes = $validated['os_type'] === 'windows'
             ? ['eventlog', 'security']
             : ['syslog', 'auth'];
-        $logTypes = !empty($validated['log_types']) ? $validated['log_types'] : $defaultLogTypes;
+        $logTypes = ! empty($validated['log_types']) ? $validated['log_types'] : $defaultLogTypes;
 
         $agent = Agent::create([
             'agent_id' => Agent::generateAgentId(),
@@ -81,7 +80,7 @@ class AgentController extends Controller
     public function show(Agent $agent)
     {
         $agent->load('tenantGroup', 'logs');
-        
+
         $recentLogs = $agent->logs()
             ->orderBy('created_at', 'desc')
             ->limit(50)
@@ -111,7 +110,7 @@ class AgentController extends Controller
 
         return response($script, 200)
             ->header('Content-Type', 'text/plain')
-            ->header('Content-Disposition', 'attachment; filename="' . ($isWindows ? 'xdr-agent-install.ps1' : 'xdr-agent-install.sh') . '"');
+            ->header('Content-Disposition', 'attachment; filename="'.($isWindows ? 'xdr-agent-install.ps1' : 'xdr-agent-install.sh').'"');
     }
 
     private function generateInstallScript(string $serverUrl, string $apiKey, string $agentId, array $config): string
@@ -566,7 +565,7 @@ POWERSHELL;
         }
 
         if ($request->filled('search')) {
-            $query->where('message', 'like', '%' . $request->search . '%');
+            $query->where('message', 'like', '%'.$request->search.'%');
         }
 
         $logs = $query->orderBy('created_at', 'desc')->paginate(50);
@@ -578,8 +577,16 @@ POWERSHELL;
 
     public function delete(Agent $agent)
     {
+        $aid = $agent->id;
+        $label = $agent->hostname ?? $agent->agent_id;
+
         $agent->logs()->delete();
         $agent->delete();
+
+        SecurityAudit::log('agent.deleted', [
+            'agent_id' => $aid,
+            'hostname' => $label,
+        ], Agent::class, $aid);
 
         return redirect()->route('agents.index')
             ->with('success', 'Agent deleted successfully.');
