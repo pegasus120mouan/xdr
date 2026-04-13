@@ -451,15 +451,109 @@
                 </div>
                 @php
                     $otxGeneral = $otx['sections']['general'] ?? null;
+                    $otxPulses = is_array($otxGeneral) ? data_get($otxGeneral, 'pulse_info.pulses', []) : [];
+                    if (! is_array($otxPulses)) {
+                        $otxPulses = [];
+                    }
+                    $otxPulseCount = is_array($otxGeneral) ? (int) data_get($otxGeneral, 'pulse_info.count', count($otxPulses)) : 0;
+                    $otxRep = is_array($otxGeneral) ? data_get($otxGeneral, 'reputation') : null;
                 @endphp
+
                 @if(is_array($otxGeneral))
-                    <p class="th-otx-summary">
-                        Pulses (champ <code>pulse_info.count</code> si présent) :
-                        <strong>{{ data_get($otxGeneral, 'pulse_info.count', '—') }}</strong>
-                    </p>
+                    <div class="th-otx-readable">
+                        <h3 class="th-otx-readable-title">Vue lisible</h3>
+                        <div class="th-otx-kv-grid">
+                            <div class="th-otx-kv">
+                                <span class="th-otx-k">Indicateur</span>
+                                <span class="th-otx-v"><code>{{ data_get($otxGeneral, 'indicator', $otx['classified']['value'] ?? '—') }}</code></span>
+                            </div>
+                            @if($otxRep !== null && $otxRep !== '')
+                                <div class="th-otx-kv">
+                                    <span class="th-otx-k">Réputation OTX</span>
+                                    <span class="th-otx-v">
+                                        <span class="th-otx-rep th-otx-rep-{{ (int) $otxRep >= 3 ? 'high' : ((int) $otxRep >= 1 ? 'mid' : 'low') }}">{{ $otxRep }}</span>
+                                        <span class="th-otx-k-hint">(0 = peu signalé, plus haut = plus d’alertes communauté)</span>
+                                    </span>
+                                </div>
+                            @endif
+                            @if($urlWhois = data_get($otxGeneral, 'whois'))
+                                <div class="th-otx-kv th-otx-kv-full">
+                                    <span class="th-otx-k">WHOIS</span>
+                                    <span class="th-otx-v">
+                                        <a href="{{ $urlWhois }}" target="_blank" rel="noopener noreferrer" class="th-link">{{ Str::limit($urlWhois, 72) }}</a>
+                                    </span>
+                                </div>
+                            @endif
+                            @if($baseIndicator = data_get($otxGeneral, 'base_indicator'))
+                                <div class="th-otx-kv th-otx-kv-full">
+                                    <span class="th-otx-k">Métadonnées</span>
+                                    <span class="th-otx-v th-otx-v-muted">{{ Str::limit(is_array($baseIndicator) ? json_encode($baseIndicator, JSON_UNESCAPED_UNICODE) : (string) $baseIndicator, 240) }}</span>
+                                </div>
+                            @endif
+                        </div>
+
+                        @if($otxPulseCount > 0 || count($otxPulses) > 0)
+                            <h4 class="th-otx-pulses-title">Pulses associés ({{ $otxPulseCount ?: count($otxPulses) }})</h4>
+                            <p class="th-otx-pulses-intro">Rapports de la communauté Open Threat Exchange contenant cet IOC.</p>
+                            <div class="table-container th-otx-table-wrap">
+                                <table class="data-table th-otx-pulse-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nom</th>
+                                            <th>Description</th>
+                                            <th>Création</th>
+                                            <th>Modif.</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach(array_slice($otxPulses, 0, 40) as $pulse)
+                                            @if(is_array($pulse))
+                                                <tr>
+                                                    <td class="th-otx-pulse-name">{{ Str::limit($pulse['name'] ?? '—', 80) }}</td>
+                                                    <td class="th-otx-pulse-desc">{{ Str::limit(strip_tags($pulse['description'] ?? ''), 160) }}</td>
+                                                    <td class="th-otx-pulse-date">{{ $pulse['created'] ?? '—' }}</td>
+                                                    <td class="th-otx-pulse-date">{{ $pulse['modified'] ?? '—' }}</td>
+                                                    <td>
+                                                        @if(!empty($pulse['id']))
+                                                            <a href="https://otx.alienvault.com/pulse/{{ $pulse['id'] }}" target="_blank" rel="noopener noreferrer" class="th-link">Pulse →</a>
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endif
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            @if(count($otxPulses) > 40)
+                                <p class="th-otx-pulses-more">Les 40 premiers pulses sont affichés ; le détail complet reste dans la réponse brute ci-dessous.</p>
+                            @endif
+                        @else
+                            <p class="th-otx-empty-pulses">Aucun pulse listé dans <code>pulse_info</code> pour cet indicateur (réponse vide ou IOC peu documenté).</p>
+                        @endif
+                    </div>
                 @endif
+
+                @php
+                    $otxRepSec = $otx['sections']['reputation'] ?? null;
+                @endphp
+                @if(is_array($otxRepSec) && count($otxRepSec) > 0)
+                    <div class="th-otx-readable th-otx-readable-secondary">
+                        <h4 class="th-otx-readable-title">Réputation (section dédiée)</h4>
+                        <ul class="th-otx-rep-list">
+                            @foreach($otxRepSec as $rk => $rv)
+                                <li><strong>{{ $rk }}</strong> : @if(is_array($rv))<code>{{ json_encode($rv, JSON_UNESCAPED_UNICODE) }}</code>@else{{ $rv }}@endif</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                <h4 class="th-otx-raw-title">Données brutes (JSON)</h4>
+                <p class="th-otx-raw-hint">À utiliser pour le debug ou les champs non affichés ci-dessus.</p>
                 @foreach($otx['sections'] ?? [] as $secName => $secPayload)
-                    <details class="th-otx-sec" @if($secName === 'general') open @endif>
+                    <details class="th-otx-sec">
                         <summary>Section <code>{{ $secName }}</code>
                             @if(isset($otx['section_http'][$secName]))
                                 (HTTP {{ $otx['section_http'][$secName] }})
@@ -644,6 +738,48 @@
     }
     .th-otx-cached { color: #86efac; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
     .th-otx-summary { font-size: 0.82rem; color: #cbd5e1; margin: 0 0 0.75rem; }
+    .th-otx-readable {
+        margin-bottom: 1.25rem;
+        padding: 1rem 1.15rem;
+        background: rgba(15, 23, 42, 0.65);
+        border: 1px solid #1e3a2f;
+        border-radius: 10px;
+    }
+    .th-otx-readable-secondary { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #1e3a2f; }
+    .th-otx-readable-title { margin: 0 0 0.85rem; font-size: 0.95rem; color: #ecfdf5; font-weight: 600; }
+    .th-otx-kv-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.65rem 1.25rem;
+        margin-bottom: 1rem;
+    }
+    .th-otx-kv { display: flex; flex-direction: column; gap: 0.2rem; }
+    .th-otx-kv-full { grid-column: 1 / -1; }
+    .th-otx-k { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }
+    .th-otx-v { font-size: 0.88rem; color: #e2e8f0; word-break: break-word; }
+    .th-otx-v-muted { font-size: 0.8rem; color: #94a3b8; }
+    .th-otx-k-hint { display: block; font-size: 0.72rem; color: #64748b; font-weight: 400; margin-top: 0.25rem; }
+    .th-otx-rep {
+        display: inline-block;
+        font-weight: 700;
+        padding: 0.15rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+    .th-otx-rep-low { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+    .th-otx-rep-mid { background: rgba(234, 179, 8, 0.2); color: #fde047; }
+    .th-otx-rep-high { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+    .th-otx-pulses-title { margin: 1rem 0 0.35rem; font-size: 0.88rem; color: #a7f3d0; }
+    .th-otx-pulses-intro { margin: 0 0 0.65rem; font-size: 0.78rem; color: #64748b; }
+    .th-otx-table-wrap { margin-top: 0.25rem; }
+    .th-otx-pulse-table { font-size: 0.8rem; }
+    .th-otx-pulse-name { font-weight: 600; color: #f1f5f9; max-width: 14rem; }
+    .th-otx-pulse-desc { color: #94a3b8; line-height: 1.4; max-width: 28rem; }
+    .th-otx-pulse-date { color: #64748b; white-space: nowrap; font-size: 0.75rem; }
+    .th-otx-pulses-more, .th-otx-empty-pulses { font-size: 0.78rem; color: #64748b; margin: 0.5rem 0 0; }
+    .th-otx-rep-list { margin: 0; padding-left: 1.1rem; color: #cbd5e1; font-size: 0.82rem; line-height: 1.55; }
+    .th-otx-raw-title { margin: 1.25rem 0 0.25rem; font-size: 0.8rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .th-otx-raw-hint { margin: 0 0 0.65rem; font-size: 0.75rem; color: #475569; }
     .th-otx-sec { margin-bottom: 0.65rem; font-size: 0.82rem; color: #94a3b8; }
     .th-otx-sec summary { cursor: pointer; margin-bottom: 0.35rem; }
     .th-threatminer {
