@@ -9,9 +9,13 @@
         --soc-cyan: #00d4ff;
         --soc-cyan-dim: rgba(0, 212, 255, 0.35);
         --soc-green: #22c55e;
-        --soc-panel: rgba(15, 30, 55, 0.65);
-        padding: 0 24px 32px;
-        background: linear-gradient(180deg, #050d1a 0%, #0a1528 40%, #060f1c 100%);
+        --soc-panel: rgba(10, 22, 42, 0.58);
+        --soc-font-display: 'Orbitron', system-ui, sans-serif;
+        --soc-font-mono: 'Share Tech Mono', ui-monospace, monospace;
+        padding: 0 24px 36px;
+        background:
+            radial-gradient(ellipse 100% 80% at 50% -20%, rgba(0, 140, 200, 0.12) 0%, transparent 50%),
+            linear-gradient(185deg, #020617 0%, #0c1929 38%, #050a12 72%, #020617 100%);
         min-height: 100vh;
         box-sizing: border-box;
         position: relative;
@@ -24,7 +28,7 @@
         inset: 0;
         pointer-events: none;
         z-index: 0;
-        opacity: 0.045;
+        opacity: 0.055;
         background-image: repeating-radial-gradient(
             circle at 20% 30%,
             rgba(255, 255, 255, 0.09) 0,
@@ -41,12 +45,82 @@
         inset: 0;
         pointer-events: none;
         z-index: 0;
-        box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.55);
+        box-shadow:
+            inset 0 0 100px rgba(0, 0, 0, 0.65),
+            inset 0 0 2px rgba(0, 212, 255, 0.06);
     }
 
-    .soc-page > * {
+    .soc-page > *:not(.soc-page__fx) {
         position: relative;
         z-index: 1;
+    }
+
+    .soc-page__fx {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+    }
+
+    .soc-page__fx-glow {
+        position: absolute;
+        top: -28%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 150%;
+        height: 90%;
+        background: radial-gradient(ellipse 52% 48% at 50% 0%, rgba(0, 212, 255, 0.11) 0%, transparent 58%);
+    }
+
+    .soc-page__fx-grid {
+        position: absolute;
+        left: -60%;
+        right: -60%;
+        top: -20%;
+        bottom: -40%;
+        opacity: 0.22;
+        background-image:
+            linear-gradient(rgba(0, 212, 255, 0.07) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 212, 255, 0.07) 1px, transparent 1px);
+        background-size: 48px 48px;
+        transform-origin: 50% 40%;
+        transform: perspective(420px) rotateX(58deg);
+        animation: soc-cyber-grid 48s linear infinite;
+        mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 88%, transparent 100%);
+        -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 88%, transparent 100%);
+    }
+
+    .soc-page__fx-scan {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 100px;
+        background: linear-gradient(
+            180deg,
+            transparent 0%,
+            rgba(0, 212, 255, 0.045) 45%,
+            rgba(0, 255, 255, 0.07) 50%,
+            rgba(0, 212, 255, 0.045) 55%,
+            transparent 100%
+        );
+        animation: soc-cyber-scan 10s linear infinite;
+        opacity: 0.85;
+    }
+
+    @keyframes soc-cyber-grid {
+        from { transform: perspective(420px) rotateX(58deg) translateY(0); }
+        to { transform: perspective(420px) rotateX(58deg) translateY(48px); }
+    }
+
+    @keyframes soc-cyber-scan {
+        from { top: -12%; }
+        to { top: 112%; }
+    }
+
+    .soc-page .soc-num,
+    .soc-page .soc-stat-value {
+        font-family: var(--soc-font-mono);
     }
 
     @keyframes soc-col-in {
@@ -72,6 +146,11 @@
         .soc-page::before,
         .soc-page::after {
             display: none;
+        }
+
+        .soc-page__fx-grid,
+        .soc-page__fx-scan {
+            animation: none !important;
         }
 
         .soc-col {
@@ -204,18 +283,24 @@
         justify-content: space-between;
         flex-wrap: wrap;
         gap: 16px;
-        padding: 20px 0 16px;
-        border-bottom: 1px solid rgba(0, 212, 255, 0.15);
-        margin-bottom: 20px;
+        padding: 22px 0 18px;
+        margin-bottom: 22px;
+        border-bottom: 1px solid transparent;
+        border-image: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.35), rgba(0, 212, 255, 0.08), transparent) 1;
+        box-shadow: 0 18px 40px -28px rgba(0, 212, 255, 0.25);
     }
 
     .soc-header__badge {
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         color: #94a3b8;
-        padding: 6px 12px;
-        border: 1px solid var(--soc-cyan-dim);
-        border-radius: 4px;
-        background: var(--soc-panel);
+        padding: 8px 14px;
+        border: 1px solid rgba(0, 212, 255, 0.28);
+        border-radius: 2px;
+        background: linear-gradient(135deg, rgba(0, 40, 70, 0.55) 0%, rgba(12, 28, 52, 0.75) 100%);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.06),
+            0 0 24px rgba(0, 100, 160, 0.12);
+        letter-spacing: 0.04em;
     }
 
     .soc-header__badge strong {
@@ -223,35 +308,84 @@
     }
 
     .soc-header__title {
-        font-size: 1.35rem;
+        font-family: var(--soc-font-display);
+        font-size: clamp(1.05rem, 2.5vw, 1.45rem);
         font-weight: 700;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.14em;
         text-transform: uppercase;
-        background: linear-gradient(90deg, #fff 0%, var(--soc-cyan) 50%, #7dd3fc 100%);
+        background: linear-gradient(92deg, #f8fafc 0%, var(--soc-cyan) 42%, #38bdf8 72%, #7dd3fc 100%);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
-        text-shadow: 0 0 40px rgba(0, 212, 255, 0.3);
+        filter: drop-shadow(0 0 28px rgba(0, 212, 255, 0.35));
     }
 
     .soc-header__meta {
         display: flex;
         align-items: center;
         gap: 16px;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         color: #94a3b8;
     }
 
+    .soc-header__meta #soc-clock {
+        font-family: var(--soc-font-mono);
+        font-size: 0.74rem;
+        color: #7dd3fc;
+        letter-spacing: 0.06em;
+        padding: 6px 10px;
+        background: rgba(0, 20, 45, 0.45);
+        border: 1px solid rgba(0, 212, 255, 0.15);
+        border-radius: 2px;
+    }
+
     .soc-header__btn {
-        padding: 8px 16px;
-        background: linear-gradient(180deg, rgba(0, 212, 255, 0.25), rgba(0, 100, 180, 0.4));
-        border: 1px solid var(--soc-cyan);
-        color: #e0f7ff;
-        border-radius: 4px;
-        font-size: 0.8rem;
+        position: relative;
+        overflow: hidden;
+        padding: 10px 18px;
+        font-family: var(--soc-font-display);
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #ecfeff;
         cursor: pointer;
         text-decoration: none;
         display: inline-block;
+        border: 1px solid rgba(0, 212, 255, 0.55);
+        background: linear-gradient(165deg, rgba(0, 80, 120, 0.5) 0%, rgba(0, 35, 65, 0.85) 100%);
+        clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.1),
+            0 0 20px rgba(0, 212, 255, 0.15);
+        transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+    }
+
+    .soc-header__btn::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
+        transform: translateX(-120%);
+        transition: transform 0.55s ease;
+    }
+
+    .soc-header__btn:hover {
+        transform: translateY(-2px);
+        border-color: var(--soc-cyan);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.14),
+            0 0 32px rgba(0, 212, 255, 0.35),
+            0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .soc-header__btn:hover::after {
+        transform: translateX(120%);
+    }
+
+    .soc-header__btn:focus-visible {
+        outline: 2px solid var(--soc-cyan);
+        outline-offset: 3px;
     }
 
     .soc-grid {
@@ -268,18 +402,52 @@
     }
 
     .soc-panel {
-        background: var(--soc-panel);
-        border: 1px solid rgba(0, 212, 255, 0.2);
-        border-radius: 8px;
-        padding: 16px;
-        box-shadow: 0 0 24px rgba(0, 40, 80, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        position: relative;
+        background: linear-gradient(155deg, rgba(12, 26, 48, 0.72) 0%, rgba(8, 18, 38, 0.55) 100%);
+        border: 1px solid rgba(0, 212, 255, 0.18);
+        border-radius: 4px;
+        padding: 16px 17px 18px;
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        box-shadow:
+            0 0 0 1px rgba(0, 0, 0, 0.35),
+            0 12px 40px rgba(0, 0, 0, 0.35),
+            0 0 48px rgba(0, 80, 140, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .soc-panel::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 12px;
+        right: 12px;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.45), transparent);
+        opacity: 0.65;
+        pointer-events: none;
+    }
+
+    .soc-panel:hover {
+        border-color: rgba(0, 212, 255, 0.28);
+        box-shadow:
+            0 0 0 1px rgba(0, 0, 0, 0.35),
+            0 14px 44px rgba(0, 0, 0, 0.38),
+            0 0 56px rgba(0, 120, 200, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
 
     .soc-panel h3 {
-        font-size: 0.85rem;
-        color: var(--soc-cyan);
-        margin-bottom: 12px;
+        font-family: var(--soc-font-display);
+        font-size: 0.68rem;
+        color: #7dd3fc;
+        margin: 0 0 14px;
         font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(0, 212, 255, 0.12);
     }
 
     .soc-secure-row {
@@ -324,19 +492,28 @@
     }
 
     .soc-threat-cell {
-        padding: 8px 10px;
-        background: rgba(0, 0, 0, 0.25);
-        border-radius: 4px;
-        font-size: 0.72rem;
+        padding: 9px 11px;
+        background: rgba(0, 8, 22, 0.45);
+        border-radius: 2px;
+        font-size: 0.7rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(0, 212, 255, 0.08);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .soc-threat-cell:hover {
+        border-color: rgba(0, 212, 255, 0.28);
+        background: rgba(0, 40, 70, 0.35);
+        box-shadow: 0 0 16px rgba(0, 212, 255, 0.08);
     }
 
     .soc-threat-cell span:last-child {
-        color: var(--soc-green);
+        color: #4ade80;
         font-weight: 600;
+        font-family: var(--soc-font-mono);
+        font-size: 0.72rem;
     }
 
     .soc-funnel {
@@ -372,6 +549,21 @@
 
     .soc-hub-wrap--active {
         min-height: 620px;
+    }
+
+    .soc-hub-wrap.soc-panel {
+        border-color: rgba(0, 212, 255, 0.26);
+        box-shadow:
+            0 0 0 1px rgba(0, 0, 0, 0.4),
+            0 16px 48px rgba(0, 0, 0, 0.4),
+            0 0 100px rgba(0, 100, 180, 0.14),
+            inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    }
+
+    .soc-hub-wrap.soc-panel::before {
+        opacity: 0.85;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.5), rgba(56, 189, 248, 0.35), transparent);
     }
 
     .soc-hub-visual {
@@ -1107,9 +1299,14 @@
     }
 
     .soc-hub-caption h2 {
-        font-size: 1rem;
-        color: var(--soc-cyan);
-        margin-bottom: 6px;
+        font-family: var(--soc-font-display);
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #a5f3fc;
+        margin-bottom: 8px;
+        text-shadow: 0 0 24px rgba(0, 212, 255, 0.35);
     }
 
     .soc-hub-caption p {
@@ -1133,11 +1330,19 @@
 
     .soc-flow-step {
         padding: 10px 12px;
-        background: rgba(0, 30, 60, 0.4);
+        background: rgba(0, 20, 45, 0.45);
         border-left: 3px solid var(--soc-cyan);
-        border-radius: 0 4px 4px 0;
+        border-radius: 0 2px 2px 0;
         font-size: 0.72rem;
         color: #cbd5e1;
+        box-shadow: inset 0 0 24px rgba(0, 212, 255, 0.03);
+        transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .soc-flow-step:hover {
+        background: rgba(0, 45, 85, 0.4);
+        border-left-color: #38bdf8;
+        box-shadow: inset 0 0 32px rgba(0, 212, 255, 0.06);
     }
 
     .soc-flow-step strong {
@@ -1193,37 +1398,56 @@
     }
 
     .soc-mini-stats div {
-        padding: 8px;
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
+        padding: 10px 8px;
+        background: rgba(0, 12, 28, 0.5);
+        border-radius: 2px;
         text-align: center;
         color: #94a3b8;
+        border: 1px solid rgba(0, 212, 255, 0.1);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .soc-mini-stats div:hover {
+        border-color: rgba(0, 212, 255, 0.25);
+        box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.04);
     }
 
     .soc-mini-stats strong {
         display: block;
         color: var(--soc-cyan);
-        font-size: 1rem;
+        font-size: 1.05rem;
+        font-family: var(--soc-font-mono);
+        margin-top: 4px;
+        text-shadow: 0 0 18px rgba(0, 212, 255, 0.35);
     }
 
     .soc-table {
         width: 100%;
-        font-size: 0.68rem;
+        font-size: 0.66rem;
         border-collapse: collapse;
         margin-top: 10px;
-        color: #64748b;
-    }
-
-    .soc-table th {
-        text-align: left;
-        padding: 6px 4px;
-        border-bottom: 1px solid rgba(0, 212, 255, 0.15);
         color: #94a3b8;
     }
 
+    .soc-table th {
+        font-family: var(--soc-font-display);
+        text-align: left;
+        padding: 8px 6px;
+        border-bottom: 1px solid rgba(0, 212, 255, 0.22);
+        color: #7dd3fc;
+        font-size: 0.58rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+
     .soc-table td {
-        padding: 8px 4px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        padding: 9px 6px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        transition: background 0.15s ease;
+    }
+
+    .soc-table tbody tr:hover td {
+        background: rgba(0, 212, 255, 0.05);
     }
 
     .soc-sev-bar {
@@ -1248,29 +1472,38 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 36px;
-        height: 36px;
+        width: 38px;
+        height: 38px;
         padding: 0;
-        border: 1px solid rgba(0, 212, 255, 0.35);
-        background: rgba(0, 30, 55, 0.5);
+        border: 1px solid rgba(0, 212, 255, 0.38);
+        background: linear-gradient(160deg, rgba(0, 45, 80, 0.55) 0%, rgba(0, 20, 40, 0.75) 100%);
         color: var(--soc-cyan);
-        border-radius: 4px;
+        border-radius: 2px;
         cursor: pointer;
         text-decoration: none;
         font-size: 1rem;
         line-height: 1;
-        transition: background 0.2s, border-color 0.2s;
+        clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.15s ease;
     }
 
     .soc-icon-btn:hover {
-        background: rgba(0, 212, 255, 0.12);
+        background: rgba(0, 212, 255, 0.14);
         border-color: var(--soc-cyan);
+        box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+        transform: translateY(-1px);
     }
 </style>
 @endpush
 
 @section('content')
 <div class="soc-page">
+    <div class="soc-page__fx" aria-hidden="true">
+        <div class="soc-page__fx-glow"></div>
+        <div class="soc-page__fx-grid"></div>
+        <div class="soc-page__fx-scan"></div>
+    </div>
     <header class="soc-header">
         <div class="soc-header__badge"><strong class="soc-num" data-soc-count="{{ $monitorStats['days_protected'] }}">{{ $monitorStats['days_protected'] }}</strong> jours protégés par XDR</div>
         <h1 class="soc-header__title">Security O&amp;M Monitor</h1>
