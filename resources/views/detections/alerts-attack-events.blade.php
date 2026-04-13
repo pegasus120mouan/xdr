@@ -142,13 +142,12 @@
                                             action="{{ route('detection.blocked-ips.block') }}"
                                             method="post"
                                             class="ae-block-form"
-                                            onsubmit="return confirm('Bloquer définitivement cette adresse IP ? Elle sera ajoutée à la liste noire sans date de fin.');"
                                         >
                                             @csrf
                                             <input type="hidden" name="ip_address" value="{{ $src }}">
                                             <input type="hidden" name="reason" value="Blocage définitif depuis Attack Events (alerte #{{ $ev->id }})">
                                             <input type="hidden" name="security_alert_id" value="{{ $ev->id }}">
-                                            <button type="submit" class="btn btn-sm ae-btn-block">Bloquer</button>
+                                            <button type="button" class="btn btn-sm ae-btn-block ae-block-trigger">Bloquer</button>
                                         </form>
                                     @endif
                                 @endif
@@ -170,6 +169,40 @@
             {{ $events->withQueryString()->links() }}
         </div>
     </section>
+
+    @php
+        $aeBlockModalBrand = parse_url((string) config('app.url'), PHP_URL_HOST) ?: config('app.name');
+    @endphp
+    <div
+        id="ae-block-modal"
+        class="ae-modal"
+        hidden
+        aria-hidden="true"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ae-block-modal-brand"
+    >
+        <div class="ae-modal-backdrop" data-ae-block-dismiss tabindex="-1"></div>
+        <div class="ae-modal-dialog" role="document">
+            <div class="ae-modal-header">
+                <span class="ae-modal-globe" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </span>
+                <span id="ae-block-modal-brand" class="ae-modal-brand">{{ $aeBlockModalBrand }}</span>
+            </div>
+            <div class="ae-modal-body">
+                <p class="ae-modal-text">Bloquer définitivement cette adresse IP ? Elle sera ajoutée à la liste noire sans date de fin.</p>
+                <p class="ae-modal-ip-wrap"><code class="ae-modal-ip" id="ae-block-modal-ip"></code></p>
+            </div>
+            <div class="ae-modal-footer">
+                <button type="button" class="ae-modal-btn ae-modal-btn-cancel" data-ae-block-dismiss>Annuler</button>
+                <button type="button" class="ae-modal-btn ae-modal-btn-confirm" id="ae-block-modal-confirm">Confirmer</button>
+            </div>
+        </div>
+    </div>
 </div>
 @endsection
 
@@ -424,6 +457,127 @@
     }
     .ae-country { font-size: 0.82rem; color: #cbd5e1; line-height: 1.35; }
     .th-link { color: #38bdf8; font-size: 0.78rem; }
+
+    .ae-modal[hidden] {
+        display: none !important;
+    }
+    .ae-modal:not([hidden]) {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        z-index: 5000;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+    }
+    .ae-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(8, 10, 14, 0.72);
+        backdrop-filter: blur(5px);
+    }
+    .ae-modal-dialog {
+        position: relative;
+        width: 100%;
+        max-width: 420px;
+        background: linear-gradient(165deg, #2d3348 0%, #232734 55%, #1e222f 100%);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 14px;
+        box-shadow:
+            0 0 0 1px rgba(0, 0, 0, 0.35),
+            0 28px 56px rgba(0, 0, 0, 0.55);
+        padding: 1.45rem 1.5rem 1.2rem;
+        animation: ae-modal-in 0.22s ease-out;
+    }
+    @keyframes ae-modal-in {
+        from {
+            opacity: 0;
+            transform: translateY(8px) scale(0.98);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    .ae-modal-header {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin-bottom: 1.2rem;
+    }
+    .ae-modal-globe {
+        color: #f1f5f9;
+        display: flex;
+        flex-shrink: 0;
+        opacity: 0.95;
+    }
+    .ae-modal-brand {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #f8fafc;
+        letter-spacing: 0.02em;
+        word-break: break-all;
+    }
+    .ae-modal-body {
+        margin-bottom: 1.45rem;
+    }
+    .ae-modal-text {
+        font-size: 0.92rem;
+        line-height: 1.55;
+        color: #e2e8f0;
+        margin: 0;
+    }
+    .ae-modal-ip-wrap {
+        margin: 1rem 0 0;
+    }
+    .ae-modal-ip {
+        display: inline-block;
+        font-family: ui-monospace, monospace;
+        font-size: 0.88rem;
+        color: #00d4ff;
+        background: rgba(0, 212, 255, 0.1);
+        padding: 0.4rem 0.7rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 212, 255, 0.22);
+    }
+    .ae-modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+    }
+    .ae-modal-btn {
+        padding: 0.55rem 1.2rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        border-radius: 8px;
+        cursor: pointer;
+        border: none;
+        font-family: inherit;
+        transition: background 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+    }
+    .ae-modal-btn-cancel {
+        background: #3d4456;
+        color: #f1f5f9;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+    }
+    .ae-modal-btn-cancel:hover {
+        background: #4a5166;
+    }
+    .ae-modal-btn-confirm {
+        background: linear-gradient(180deg, #22d3ee 0%, #06b6d4 100%);
+        color: #0f172a;
+        border: 1px solid rgba(34, 211, 238, 0.45);
+        box-shadow: 0 2px 14px rgba(6, 182, 212, 0.28);
+    }
+    .ae-modal-btn-confirm:hover {
+        filter: brightness(1.06);
+        box-shadow: 0 4px 18px rgba(6, 182, 212, 0.35);
+    }
+    .ae-modal-btn:focus-visible {
+        outline: 2px solid #22d3ee;
+        outline-offset: 2px;
+    }
 </style>
 @endpush
 
@@ -469,5 +623,72 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 });
+
+(function () {
+    var modal = document.getElementById('ae-block-modal');
+    if (!modal) return;
+
+    var ipEl = document.getElementById('ae-block-modal-ip');
+    var confirmBtn = document.getElementById('ae-block-modal-confirm');
+    var pendingForm = null;
+    var lastTrigger = null;
+
+    function openModal(form, trigger) {
+        pendingForm = form;
+        lastTrigger = trigger || null;
+        var ipInput = form.querySelector('input[name="ip_address"]');
+        if (ipEl && ipInput) {
+            ipEl.textContent = ipInput.value;
+        }
+        modal.removeAttribute('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        if (confirmBtn) {
+            confirmBtn.focus();
+        }
+    }
+
+    function closeModal() {
+        modal.setAttribute('hidden', '');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        pendingForm = null;
+        if (lastTrigger) {
+            lastTrigger.focus();
+        }
+        lastTrigger = null;
+    }
+
+    document.querySelectorAll('.ae-block-trigger').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var form = btn.closest('.ae-block-form');
+            if (form) {
+                openModal(form, btn);
+            }
+        });
+    });
+
+    modal.querySelectorAll('[data-ae-block-dismiss]').forEach(function (el) {
+        el.addEventListener('click', function (e) {
+            if (e.target === el) {
+                closeModal();
+            }
+        });
+    });
+
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function () {
+            if (pendingForm) {
+                pendingForm.submit();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.hasAttribute('hidden')) {
+            closeModal();
+        }
+    });
+})();
 </script>
 @endsection
