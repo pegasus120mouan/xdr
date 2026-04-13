@@ -234,17 +234,18 @@ class DetectionController extends Controller
             'ip_address' => 'required|ip',
             'reason' => 'required|string|max:255',
             'duration' => 'nullable|integer|min:1',
+            'security_alert_id' => 'nullable|integer|exists:security_alerts,id',
         ]);
 
         BlockedIp::block(
             $validated['ip_address'],
             $validated['reason'],
-            null,
+            $validated['security_alert_id'] ?? null,
             auth()->id(),
             $validated['duration'] ?? null
         );
 
-        return back()->with('success', 'IP blocked successfully.');
+        return back()->with('success', 'IP ajoutée à la liste noire.');
     }
 
     public function loginAttempts(Request $request)

@@ -16,6 +16,17 @@
         <a href="{{ route('monitor.attack-map') }}" class="ae-subtab" target="_blank" rel="noopener noreferrer">Carte d’attaques</a>
     </nav>
 
+    @if(session('success'))
+        <div class="alert alert-success ae-flash">{{ session('success') }}</div>
+    @endif
+    @if($errors->any())
+        <div class="alert alert-error ae-flash">
+            @foreach($errors->all() as $err)
+                <div>{{ $err }}</div>
+            @endforeach
+        </div>
+    @endif
+
     <form method="get" action="{{ route('detection.alerts.attack-events') }}" class="ae-toolbar">
         <input type="hidden" name="q" value="{{ request('q') }}">
         <button type="submit" class="btn btn-secondary btn-sm">Actualiser</button>
@@ -126,6 +137,20 @@
                                     <span class="ae-blocked">Bloqué</span>
                                 @else
                                     <span class="ae-allow">Non bloqué</span>
+                                    @if($src !== '—')
+                                        <form
+                                            action="{{ route('detection.blocked-ips.block') }}"
+                                            method="post"
+                                            class="ae-block-form"
+                                            onsubmit="return confirm('Bloquer définitivement cette adresse IP ? Elle sera ajoutée à la liste noire sans date de fin.');"
+                                        >
+                                            @csrf
+                                            <input type="hidden" name="ip_address" value="{{ $src }}">
+                                            <input type="hidden" name="reason" value="Blocage définitif depuis Attack Events (alerte #{{ $ev->id }})">
+                                            <input type="hidden" name="security_alert_id" value="{{ $ev->id }}">
+                                            <button type="submit" class="btn btn-sm ae-btn-block">Bloquer</button>
+                                        </form>
+                                    @endif
                                 @endif
                                 <a href="{{ route('detection.alerts.show', $ev) }}" class="th-link">Détails</a>
                             </td>
@@ -151,6 +176,22 @@
 @push('styles')
 <style>
     .ae-page .ae-header .page-title { margin-bottom: 0.35rem; }
+    .ae-flash.alert {
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-size: 0.88rem;
+    }
+    .ae-flash.alert-success {
+        background: rgba(34, 197, 94, 0.2);
+        border: 1px solid rgba(34, 197, 94, 0.35);
+        color: #86efac;
+    }
+    .ae-flash.alert-error {
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        color: #fca5a5;
+    }
     .sa-tabs {
         display: flex;
         flex-wrap: wrap;
@@ -349,6 +390,22 @@
     .ae-times { font-size: 0.72rem; color: #94a3b8; line-height: 1.45; }
     .ae-tlabel { color: #64748b; margin-right: 0.25rem; }
     .ae-ops { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
+    .ae-block-form { margin: 0; width: 100%; }
+    .ae-btn-block {
+        margin-top: 0.15rem;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 6px;
+        background: rgba(249, 115, 22, 0.22);
+        border: 1px solid rgba(249, 115, 22, 0.45);
+        color: #fdba74;
+    }
+    .ae-btn-block:hover {
+        background: rgba(249, 115, 22, 0.32);
+        color: #ffedd5;
+    }
     .ae-blocked { color: #f87171; font-size: 0.75rem; font-weight: 600; }
     .ae-allow { color: #94a3b8; font-size: 0.75rem; }
     .ae-ecount { color: #64748b; font-size: 0.72rem; }
