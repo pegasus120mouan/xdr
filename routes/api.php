@@ -10,6 +10,7 @@ Route::post('/agent/logs', [AgentApiController::class, 'receiveLogs']);
 Route::post('/agent/register', [AgentApiController::class, 'register']);
 Route::get('/agent/install.sh', [AgentApiController::class, 'installScript']);
 Route::get('/agent/install.ps1', [AgentApiController::class, 'installPowerShellScript']);
+Route::get('/agent/update.sh', [AgentApiController::class, 'updateScript']);
 
 // Intégration SIEM / scripts (Bearer XDR_INTEGRATION_TOKEN)
 Route::get('/v1/integrations/health', [IntegrationApiController::class, 'health']);

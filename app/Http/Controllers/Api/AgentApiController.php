@@ -352,7 +352,7 @@ cat > $INSTALL_DIR/config.conf << EOF
 XDR_SERVER=$XDR_MANAGER
 API_KEY=$API_KEY
 AGENT_ID=$AGENT_ID
-LOG_TYPES="syslog auth"
+LOG_TYPES="syslog auth app"
 SEND_INTERVAL=60
 BATCH_SIZE=100
 EOF
@@ -445,6 +445,20 @@ main() {
             case $log_type in
                 syslog) collect_logs "/var/log/syslog" "syslog"; collect_logs "/var/log/messages" "syslog" ;;
                 auth) collect_logs "/var/log/auth.log" "auth"; collect_logs "/var/log/secure" "auth" ;;
+                app) 
+                    # Application logs - Laravel, Apache, Nginx, etc.
+                    collect_logs "/var/log/apache2/error.log" "apache"
+                    collect_logs "/var/log/apache2/access.log" "apache"
+                    collect_logs "/var/log/nginx/error.log" "nginx"
+                    collect_logs "/var/log/nginx/access.log" "nginx"
+                    collect_logs "/var/log/mysql/error.log" "mysql"
+                    # Laravel logs (common paths)
+                    for laravel_log in /var/www/*/storage/logs/laravel.log; do
+                        [ -f "$laravel_log" ] && collect_logs "$laravel_log" "laravel"
+                    done
+                    # Docker logs
+                    collect_logs "/var/log/docker.log" "docker"
+                    ;;
             esac
         done
         
@@ -723,5 +737,252 @@ PS1;
         return response($script, 200)
             ->header('Content-Type', 'text/plain; charset=UTF-8')
             ->header('Content-Disposition', 'attachment; filename="install.ps1"');
+    }
+
+    /**
+     * Agent update script - updates agent without losing configuration
+     * GET /api/agent/update.sh
+     */
+    public function updateScript()
+    {
+        $script = <<<'BASH'
+#!/bin/bash
+#
+# Wara XDR Agent Update Script
+# Updates agent without losing configuration
+#
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+INSTALL_DIR="/opt/athena-xdr"
+CONFIG_FILE="$INSTALL_DIR/config.conf"
+BACKUP_DIR="$INSTALL_DIR/backup_$(date +%Y%m%d_%H%M%S)"
+
+echo -e "${BLUE}"
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║              Wara XDR - Agent Update                        ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo -e "${NC}"
+
+# Check root
+if [ "$EUID" -ne 0 ]; then
+    echo -e "${RED}[ERROR] Please run as root (sudo)${NC}"
+    exit 1
+fi
+
+# Check if agent is installed
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo -e "${RED}[ERROR] Agent not installed. Use install.sh instead.${NC}"
+    exit 1
+fi
+
+# Load current config
+source "$CONFIG_FILE"
+
+echo -e "${YELLOW}[*] Current agent: ${AGENT_ID}${NC}"
+echo -e "${YELLOW}[*] Server: ${XDR_SERVER}${NC}"
+
+# Backup current installation
+echo -e "${YELLOW}[*] Creating backup...${NC}"
+mkdir -p "$BACKUP_DIR"
+cp "$CONFIG_FILE" "$BACKUP_DIR/"
+cp "$INSTALL_DIR/xdr-agent.sh" "$BACKUP_DIR/" 2>/dev/null || true
+
+# Stop the service
+echo -e "${YELLOW}[*] Stopping agent service...${NC}"
+systemctl stop athena-xdr-agent 2>/dev/null || true
+
+# Update config to include app logs if not present
+echo -e "${YELLOW}[*] Updating configuration...${NC}"
+if ! grep -q "app" "$CONFIG_FILE" 2>/dev/null; then
+    sed -i 's/LOG_TYPES="syslog auth"/LOG_TYPES="syslog auth app"/' "$CONFIG_FILE"
+    echo -e "${GREEN}[✓] Added application log collection${NC}"
+fi
+
+# Create updated agent script
+echo -e "${YELLOW}[*] Updating agent script...${NC}"
+cat > $INSTALL_DIR/xdr-agent.sh << 'AGENT_SCRIPT'
+#!/bin/bash
+source /opt/athena-xdr/config.conf
+
+QUEUE_DIR="/opt/athena-xdr/queue"
+STATE_DIR="/opt/athena-xdr/state"
+LOG_FILE="/opt/athena-xdr/logs/agent.log"
+
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> $LOG_FILE; }
+
+parse_syslog() {
+    local line="$1"
+    local source="$2"
+    local severity="info"
+    
+    if [[ $line =~ (error|fail|denied|invalid|attack|injection|unauthorized) ]]; then severity="error"
+    elif [[ $line =~ (warn|warning) ]]; then severity="warning"
+    elif [[ $line =~ (critical|emergency|panic|exploit|malicious) ]]; then severity="critical"
+    fi
+    
+    local escaped_msg=$(echo "$line" | sed 's/"/\\"/g' | tr -d '\n')
+    echo "{\"log_type\":\"$source\",\"message\":\"$escaped_msg\",\"severity\":\"$severity\",\"hostname\":\"$(hostname)\",\"log_timestamp\":\"$(date '+%Y-%m-%d %H:%M:%S')\"}"
+}
+
+collect_logs() {
+    local log_file="$1"
+    local log_type="$2"
+    local state_file="$STATE_DIR/$(echo $log_file | md5sum | cut -d' ' -f1)"
+    
+    [ ! -f "$log_file" ] && return
+    
+    local last_pos=0
+    [ -f "$state_file" ] && last_pos=$(cat $state_file)
+    local current_size=$(stat -c%s "$log_file" 2>/dev/null || echo 0)
+    
+    [ $current_size -lt $last_pos ] && last_pos=0
+    
+    if [ $current_size -gt $last_pos ]; then
+        tail -c +$((last_pos + 1)) "$log_file" 2>/dev/null | head -n 100 | while IFS= read -r line; do
+            [ -n "$line" ] && parse_syslog "$line" "$log_type" >> "$QUEUE_DIR/batch_$$.json"
+        done
+        echo $current_size > $state_file
+    fi
+}
+
+send_logs() {
+    local batch_file="$1"
+    [ ! -f "$batch_file" ] || [ ! -s "$batch_file" ] && { rm -f "$batch_file" 2>/dev/null; return; }
+    
+    local logs="[$(cat $batch_file | head -n $BATCH_SIZE | tr '\n' ',' | sed 's/,$//')]"
+    
+    local response=$(curl -s -w "\n%{http_code}" -X POST "https://$XDR_SERVER/api/agent/logs" \
+        -H "Content-Type: application/json" \
+        -H "X-Agent-ID: $AGENT_ID" \
+        -H "X-API-Key: $API_KEY" \
+        -d "{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I | awk '{print $1}')\",\"logs\":$logs}" 2>/dev/null || \
+        curl -s -w "\n%{http_code}" -X POST "http://$XDR_SERVER/api/agent/logs" \
+        -H "Content-Type: application/json" \
+        -H "X-Agent-ID: $AGENT_ID" \
+        -H "X-API-Key: $API_KEY" \
+        -d "{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I | awk '{print $1}')\",\"logs\":$logs}")
+    
+    local http_code=$(echo "$response" | tail -n1)
+    [ "$http_code" = "200" ] || [ "$http_code" = "201" ] && { log "Sent $(wc -l < $batch_file) logs"; rm -f "$batch_file"; } || log "Failed: HTTP $http_code"
+}
+
+send_heartbeat() {
+    curl -s -X POST "https://$XDR_SERVER/api/agent/heartbeat" \
+        -H "Content-Type: application/json" -H "X-Agent-ID: $AGENT_ID" -H "X-API-Key: $API_KEY" \
+        -d "{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\"}" > /dev/null 2>&1 || \
+    curl -s -X POST "http://$XDR_SERVER/api/agent/heartbeat" \
+        -H "Content-Type: application/json" -H "X-Agent-ID: $AGENT_ID" -H "X-API-Key: $API_KEY" \
+        -d "{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\"}" > /dev/null 2>&1
+}
+
+main() {
+    log "Agent started (v2.0 - with app logs)"
+    local heartbeat_counter=0
+    
+    while true; do
+        for log_type in $LOG_TYPES; do
+            case $log_type in
+                syslog) 
+                    collect_logs "/var/log/syslog" "syslog"
+                    collect_logs "/var/log/messages" "syslog" 
+                    ;;
+                auth) 
+                    collect_logs "/var/log/auth.log" "auth"
+                    collect_logs "/var/log/secure" "auth" 
+                    ;;
+                app) 
+                    # Apache logs
+                    collect_logs "/var/log/apache2/error.log" "apache"
+                    collect_logs "/var/log/apache2/access.log" "apache"
+                    collect_logs "/var/log/httpd/error_log" "apache"
+                    collect_logs "/var/log/httpd/access_log" "apache"
+                    # Nginx logs
+                    collect_logs "/var/log/nginx/error.log" "nginx"
+                    collect_logs "/var/log/nginx/access.log" "nginx"
+                    # MySQL/MariaDB logs
+                    collect_logs "/var/log/mysql/error.log" "mysql"
+                    collect_logs "/var/log/mariadb/mariadb.log" "mysql"
+                    collect_logs "/var/log/mysqld.log" "mysql"
+                    # PostgreSQL logs
+                    collect_logs "/var/log/postgresql/postgresql-main.log" "postgresql"
+                    # Laravel logs
+                    for laravel_log in /var/www/*/storage/logs/laravel.log; do
+                        [ -f "$laravel_log" ] && collect_logs "$laravel_log" "laravel"
+                    done
+                    for laravel_log in /home/*/public_html/storage/logs/laravel.log; do
+                        [ -f "$laravel_log" ] && collect_logs "$laravel_log" "laravel"
+                    done
+                    # Node.js PM2 logs
+                    for pm2_log in /root/.pm2/logs/*.log; do
+                        [ -f "$pm2_log" ] && collect_logs "$pm2_log" "nodejs"
+                    done
+                    # Docker logs
+                    collect_logs "/var/log/docker.log" "docker"
+                    # Fail2ban logs
+                    collect_logs "/var/log/fail2ban.log" "fail2ban"
+                    ;;
+            esac
+        done
+        
+        for batch in $QUEUE_DIR/batch_*.json; do [ -f "$batch" ] && send_logs "$batch"; done
+        
+        heartbeat_counter=$((heartbeat_counter + 1))
+        [ $heartbeat_counter -ge 5 ] && { send_heartbeat; heartbeat_counter=0; }
+        
+        sleep $SEND_INTERVAL
+    done
+}
+
+main
+AGENT_SCRIPT
+
+chmod +x $INSTALL_DIR/xdr-agent.sh
+
+# Restart the service
+echo -e "${YELLOW}[*] Restarting agent service...${NC}"
+systemctl start athena-xdr-agent
+
+sleep 2
+if systemctl is-active --quiet athena-xdr-agent; then
+    echo -e "${GREEN}"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║           ✓ Agent updated successfully!                     ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+    echo ""
+    echo -e "Agent ID:     ${BLUE}$AGENT_ID${NC}"
+    echo -e "Version:      ${BLUE}2.0 (with app logs)${NC}"
+    echo -e "Status:       ${GREEN}Running${NC}"
+    echo -e "Backup:       ${YELLOW}$BACKUP_DIR${NC}"
+    echo ""
+    echo -e "${GREEN}New log sources:${NC}"
+    echo "  - Apache/Nginx access & error logs"
+    echo "  - MySQL/MariaDB logs"
+    echo "  - PostgreSQL logs"
+    echo "  - Laravel application logs"
+    echo "  - Node.js PM2 logs"
+    echo "  - Docker logs"
+    echo "  - Fail2ban logs"
+    echo ""
+else
+    echo -e "${RED}[ERROR] Service failed to start${NC}"
+    echo -e "${YELLOW}[*] Restoring backup...${NC}"
+    cp "$BACKUP_DIR/xdr-agent.sh" "$INSTALL_DIR/" 2>/dev/null || true
+    cp "$BACKUP_DIR/config.conf" "$INSTALL_DIR/" 2>/dev/null || true
+    systemctl start athena-xdr-agent
+    exit 1
+fi
+BASH;
+
+        return response($script, 200)
+            ->header('Content-Type', 'text/plain')
+            ->header('Content-Disposition', 'attachment; filename="update.sh"');
     }
 }
