@@ -148,12 +148,9 @@
 
             <div class="action-buttons-section">
                 @if($asset->agent && $asset->os_type === 'linux')
-                <form action="{{ route('agents.scan', $asset->agent) }}" method="POST">
-                    @csrf
-                    <button type="submit" class="btn btn-warning btn-block" onclick="return confirm('Lancer un scan de vulnérabilités ?')">
-                        🔍 Scan Vulnérabilités
-                    </button>
-                </form>
+                <button type="button" class="btn btn-warning btn-block" onclick="openScanModal()">
+                    🔍 Scan Vulnérabilités
+                </button>
                 @endif
                 <button class="btn btn-secondary btn-block">🔄 Rescan Asset</button>
                 <button class="btn btn-secondary btn-block">📋 View Logs</button>
@@ -540,5 +537,263 @@
 .btn-warning:hover {
     background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
 }
+
+/* Scan Modal */
+.scan-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+.scan-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+.scan-modal {
+    background: linear-gradient(145deg, #1a1f2e 0%, #0f1419 100%);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 480px;
+    padding: 0;
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.3s ease;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), 0 0 100px rgba(0, 212, 255, 0.1);
+}
+.scan-modal-overlay.active .scan-modal {
+    transform: scale(1) translateY(0);
+}
+.scan-modal-header {
+    padding: 24px 24px 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.scan-modal-icon {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.2) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+}
+.scan-modal-title {
+    flex: 1;
+}
+.scan-modal-title h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #f1f5f9;
+}
+.scan-modal-title p {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+.scan-modal-body {
+    padding: 24px;
+}
+.scan-info-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #2d3748;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+.scan-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(45, 55, 72, 0.5);
+}
+.scan-info-row:last-child {
+    border-bottom: none;
+}
+.scan-info-label {
+    color: #64748b;
+    font-size: 0.85rem;
+}
+.scan-info-value {
+    color: #e2e8f0;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.scan-types {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.scan-type-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+}
+.scan-type-icon {
+    font-size: 1.2rem;
+}
+.scan-type-info {
+    flex: 1;
+}
+.scan-type-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+.scan-type-desc {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+.scan-type-check {
+    color: #22c55e;
+    font-size: 1.1rem;
+}
+.scan-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: #fde047;
+}
+.scan-warning-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+.scan-modal-footer {
+    padding: 0 24px 24px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+.scan-modal-footer .btn {
+    min-width: 120px;
+    padding: 12px 24px;
+    font-weight: 600;
+}
+.btn-cancel {
+    background: transparent;
+    border: 1px solid #475569;
+    color: #94a3b8;
+}
+.btn-cancel:hover {
+    background: rgba(71, 85, 105, 0.3);
+    border-color: #64748b;
+}
+.btn-scan {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border: none;
+    color: #fff;
+}
+.btn-scan:hover {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+}
 </style>
+
+@if($asset->agent && $asset->os_type === 'linux')
+<!-- Scan Modal -->
+<div class="scan-modal-overlay" id="scanModal">
+    <div class="scan-modal">
+        <div class="scan-modal-header">
+            <div class="scan-modal-icon">🔍</div>
+            <div class="scan-modal-title">
+                <h3>Scan de Vulnérabilités</h3>
+                <p>Analyse complète de sécurité</p>
+            </div>
+        </div>
+        <div class="scan-modal-body">
+            <div class="scan-info-card">
+                <div class="scan-info-row">
+                    <span class="scan-info-label">Cible</span>
+                    <span class="scan-info-value">{{ $asset->hostname }}</span>
+                </div>
+                <div class="scan-info-row">
+                    <span class="scan-info-label">Adresse IP</span>
+                    <span class="scan-info-value">{{ $asset->ip_address }}</span>
+                </div>
+                <div class="scan-info-row">
+                    <span class="scan-info-label">Système</span>
+                    <span class="scan-info-value">🐧 {{ $asset->os_version ?? 'Linux' }}</span>
+                </div>
+            </div>
+            
+            <div class="scan-types">
+                <div class="scan-type-item">
+                    <span class="scan-type-icon">📦</span>
+                    <div class="scan-type-info">
+                        <div class="scan-type-name">Paquets système</div>
+                        <div class="scan-type-desc">Détection des paquets obsolètes et CVE connues</div>
+                    </div>
+                    <span class="scan-type-check">✓</span>
+                </div>
+                <div class="scan-type-item">
+                    <span class="scan-type-icon">🔌</span>
+                    <div class="scan-type-info">
+                        <div class="scan-type-name">Ports ouverts</div>
+                        <div class="scan-type-desc">Identification des services exposés</div>
+                    </div>
+                    <span class="scan-type-check">✓</span>
+                </div>
+                <div class="scan-type-item">
+                    <span class="scan-type-icon">⚙️</span>
+                    <div class="scan-type-info">
+                        <div class="scan-type-name">Configuration</div>
+                        <div class="scan-type-desc">Vérification SSH, firewall, permissions</div>
+                    </div>
+                    <span class="scan-type-check">✓</span>
+                </div>
+            </div>
+            
+            <div class="scan-warning">
+                <span class="scan-warning-icon">⚠️</span>
+                <span>Le scan peut prendre quelques minutes. Les résultats seront disponibles dans la section "Résultats des Scans".</span>
+            </div>
+        </div>
+        <div class="scan-modal-footer">
+            <button type="button" class="btn btn-cancel" onclick="closeScanModal()">Annuler</button>
+            <form action="{{ route('agents.scan', $asset->agent) }}" method="POST" style="display: inline;">
+                @csrf
+                <button type="submit" class="btn btn-scan">🚀 Lancer le Scan</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openScanModal() {
+    document.getElementById('scanModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+function closeScanModal() {
+    document.getElementById('scanModal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+document.getElementById('scanModal').addEventListener('click', function(e) {
+    if (e.target === this) closeScanModal();
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeScanModal();
+});
+</script>
+@endif
+
 @endsection

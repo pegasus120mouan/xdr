@@ -1188,8 +1188,8 @@ BASH;
         $script = <<<'BASH'
 #!/bin/bash
 #
-# Wara XDR Vulnerability Scanner
-# Performs security scans on Linux servers
+# Wara XDR Vulnerability Scanner v2
+# Simplified and robust version
 #
 
 source /opt/athena-xdr/config.conf 2>/dev/null || {
@@ -1201,6 +1201,12 @@ SCAN_ID="$1"
 SCAN_TYPE="${2:-full}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"; }
+
+# Ensure jq is installed
+if ! command -v jq &>/dev/null; then
+    log "Installing jq..."
+    apt-get install -y jq &>/dev/null || yum install -y jq &>/dev/null
+fi
 
 # Initialize results
 declare -A RESULTS
@@ -1439,16 +1445,11 @@ main() {
         --argjson results "$results" \
         '{scan_id: $scan_id, status: $status, results: $results}')
     
-    curl -s -X POST "https://$XDR_SERVER/api/agent/scan/results" \
+    curl -ksS -X POST "https://$XDR_SERVER/api/agent/scan/results" \
         -H "Content-Type: application/json" \
         -H "X-Agent-ID: $AGENT_ID" \
         -H "X-API-Key: $API_KEY" \
-        -d "$payload" 2>/dev/null || \
-    curl -s -X POST "http://$XDR_SERVER/api/agent/scan/results" \
-        -H "Content-Type: application/json" \
-        -H "X-Agent-ID: $AGENT_ID" \
-        -H "X-API-Key: $API_KEY" \
-        -d "$payload"
+        -d "$payload" || echo "Failed to send results"
     
     log "Results sent to XDR server"
 }
