@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\AgentLog;
 use App\Models\Asset;
+use App\Models\VulnerabilityScan;
 use App\Services\LogAnalyzer;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -882,9 +883,33 @@ send_heartbeat() {
         -d "{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\"}" > /dev/null 2>&1
 }
 
+check_for_scan() {
+    local response=$(curl -s -X GET "https://$XDR_SERVER/api/agent/scan/check" \
+        -H "X-Agent-ID: $AGENT_ID" \
+        -H "X-API-Key: $API_KEY" 2>/dev/null || \
+        curl -s -X GET "http://$XDR_SERVER/api/agent/scan/check" \
+        -H "X-Agent-ID: $AGENT_ID" \
+        -H "X-API-Key: $API_KEY" 2>/dev/null)
+    
+    local scan_required=$(echo "$response" | grep -o '"scan_required":true' || echo "")
+    
+    if [ -n "$scan_required" ]; then
+        local scan_id=$(echo "$response" | grep -o '"scan_id":"[^"]*"' | cut -d'"' -f4)
+        local scan_type=$(echo "$response" | grep -o '"scan_type":"[^"]*"' | cut -d'"' -f4)
+        log "Scan requested: $scan_id (type: $scan_type)"
+        
+        # Download and run scan script
+        curl -sS "https://$XDR_SERVER/api/agent/scan.sh" -o /tmp/xdr-scan.sh 2>/dev/null || \
+        curl -sS "http://$XDR_SERVER/api/agent/scan.sh" -o /tmp/xdr-scan.sh
+        chmod +x /tmp/xdr-scan.sh
+        /tmp/xdr-scan.sh "$scan_id" "$scan_type" &
+    fi
+}
+
 main() {
-    log "Agent started (v2.0 - with app logs)"
+    log "Agent started (v2.1 - with app logs & vuln scan)"
     local heartbeat_counter=0
+    local scan_check_counter=0
     
     while true; do
         for log_type in $LOG_TYPES; do
@@ -936,6 +961,10 @@ main() {
         heartbeat_counter=$((heartbeat_counter + 1))
         [ $heartbeat_counter -ge 5 ] && { send_heartbeat; heartbeat_counter=0; }
         
+        # Check for vulnerability scan every 5 cycles (~5 minutes)
+        scan_check_counter=$((scan_check_counter + 1))
+        [ $scan_check_counter -ge 5 ] && { check_for_scan; scan_check_counter=0; }
+        
         sleep $SEND_INTERVAL
     done
 }
@@ -984,5 +1013,460 @@ BASH;
         return response($script, 200)
             ->header('Content-Type', 'text/plain')
             ->header('Content-Disposition', 'attachment; filename="update.sh"');
+    }
+
+    /**
+     * Trigger a vulnerability scan on an agent
+     * POST /api/agent/scan/trigger
+     */
+    public function triggerScan(Request $request): JsonResponse
+    {
+        $agentId = $request->header('X-Agent-ID') ?? $request->input('agent_id');
+        $apiKey = $request->header('X-API-Key') ?? $request->input('api_key');
+
+        $agent = Agent::where('agent_id', $agentId)->first();
+
+        if (!$agent) {
+            return response()->json(['error' => 'Agent not found'], 404);
+        }
+
+        // Check if there's already a pending scan
+        $pendingScan = VulnerabilityScan::where('agent_id', $agent->id)
+            ->whereIn('status', ['pending', 'running'])
+            ->first();
+
+        if ($pendingScan) {
+            return response()->json([
+                'status' => 'already_running',
+                'scan_id' => $pendingScan->scan_id,
+                'message' => 'A scan is already in progress',
+            ]);
+        }
+
+        // Create new scan
+        $scan = VulnerabilityScan::create([
+            'agent_id' => $agent->id,
+            'scan_id' => VulnerabilityScan::generateScanId(),
+            'status' => 'pending',
+            'scan_type' => $request->input('scan_type', 'full'),
+        ]);
+
+        return response()->json([
+            'status' => 'ok',
+            'scan_id' => $scan->scan_id,
+            'message' => 'Scan triggered successfully',
+        ]);
+    }
+
+    /**
+     * Check for pending scans (called by agent)
+     * GET /api/agent/scan/check
+     */
+    public function checkScan(Request $request): JsonResponse
+    {
+        $agentId = $request->header('X-Agent-ID');
+        $apiKey = $request->header('X-API-Key');
+
+        if (!$agentId || !$apiKey) {
+            return response()->json(['error' => 'Missing authentication headers'], 401);
+        }
+
+        $agent = Agent::where('agent_id', $agentId)
+            ->where('api_key', $apiKey)
+            ->first();
+
+        if (!$agent) {
+            return response()->json(['error' => 'Invalid agent credentials'], 401);
+        }
+
+        // Check for pending scan
+        $pendingScan = VulnerabilityScan::where('agent_id', $agent->id)
+            ->where('status', 'pending')
+            ->first();
+
+        if ($pendingScan) {
+            $pendingScan->update([
+                'status' => 'running',
+                'started_at' => now(),
+            ]);
+
+            return response()->json([
+                'scan_required' => true,
+                'scan_id' => $pendingScan->scan_id,
+                'scan_type' => $pendingScan->scan_type,
+            ]);
+        }
+
+        return response()->json([
+            'scan_required' => false,
+        ]);
+    }
+
+    /**
+     * Receive scan results from agent
+     * POST /api/agent/scan/results
+     */
+    public function receiveScanResults(Request $request): JsonResponse
+    {
+        $agentId = $request->header('X-Agent-ID');
+        $apiKey = $request->header('X-API-Key');
+
+        if (!$agentId || !$apiKey) {
+            return response()->json(['error' => 'Missing authentication headers'], 401);
+        }
+
+        $agent = Agent::where('agent_id', $agentId)
+            ->where('api_key', $apiKey)
+            ->first();
+
+        if (!$agent) {
+            return response()->json(['error' => 'Invalid agent credentials'], 401);
+        }
+
+        $data = $request->validate([
+            'scan_id' => 'required|string',
+            'status' => 'required|in:completed,failed',
+            'results' => 'nullable|array',
+            'error_message' => 'nullable|string',
+        ]);
+
+        $scan = VulnerabilityScan::where('scan_id', $data['scan_id'])
+            ->where('agent_id', $agent->id)
+            ->first();
+
+        if (!$scan) {
+            return response()->json(['error' => 'Scan not found'], 404);
+        }
+
+        $results = $data['results'] ?? [];
+        
+        // Count vulnerabilities by severity
+        $critical = 0;
+        $high = 0;
+        $medium = 0;
+        $low = 0;
+
+        foreach (['packages', 'ports', 'config'] as $category) {
+            if (isset($results[$category]['findings'])) {
+                foreach ($results[$category]['findings'] as $finding) {
+                    $severity = strtolower($finding['severity'] ?? 'low');
+                    match ($severity) {
+                        'critical' => $critical++,
+                        'high' => $high++,
+                        'medium' => $medium++,
+                        default => $low++,
+                    };
+                }
+            }
+        }
+
+        $scan->update([
+            'status' => $data['status'],
+            'results' => $results,
+            'vulnerabilities_found' => $critical + $high + $medium + $low,
+            'critical_count' => $critical,
+            'high_count' => $high,
+            'medium_count' => $medium,
+            'low_count' => $low,
+            'completed_at' => now(),
+            'error_message' => $data['error_message'] ?? null,
+        ]);
+
+        return response()->json([
+            'status' => 'ok',
+            'message' => 'Scan results received',
+            'vulnerabilities_found' => $scan->vulnerabilities_found,
+        ]);
+    }
+
+    /**
+     * Get vulnerability scan script
+     * GET /api/agent/scan.sh
+     */
+    public function scanScript(): \Illuminate\Http\Response
+    {
+        $script = <<<'BASH'
+#!/bin/bash
+#
+# Wara XDR Vulnerability Scanner
+# Performs security scans on Linux servers
+#
+
+source /opt/athena-xdr/config.conf 2>/dev/null || {
+    echo "Error: Agent not installed"
+    exit 1
+}
+
+SCAN_ID="$1"
+SCAN_TYPE="${2:-full}"
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"; }
+
+# Initialize results
+declare -A RESULTS
+RESULTS_JSON=""
+
+# ============================================
+# 1. PACKAGE VULNERABILITY SCAN
+# ============================================
+scan_packages() {
+    log "Scanning installed packages for vulnerabilities..."
+    
+    local findings="[]"
+    local pkg_manager=""
+    
+    # Detect package manager
+    if command -v apt &>/dev/null; then
+        pkg_manager="apt"
+        # Get upgradable packages (potential vulnerabilities)
+        apt update -qq 2>/dev/null
+        local upgradable=$(apt list --upgradable 2>/dev/null | grep -v "Listing" | head -50)
+        
+        while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            local pkg=$(echo "$line" | cut -d'/' -f1)
+            local version=$(echo "$line" | awk '{print $2}')
+            findings=$(echo "$findings" | jq --arg pkg "$pkg" --arg ver "$version" \
+                '. + [{"name": $pkg, "current_version": $ver, "severity": "medium", "type": "outdated_package"}]')
+        done <<< "$upgradable"
+        
+    elif command -v yum &>/dev/null; then
+        pkg_manager="yum"
+        local updates=$(yum check-update 2>/dev/null | grep -E "^\S+\s+\S+\s+\S+" | head -50)
+        
+        while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            local pkg=$(echo "$line" | awk '{print $1}')
+            local version=$(echo "$line" | awk '{print $2}')
+            findings=$(echo "$findings" | jq --arg pkg "$pkg" --arg ver "$version" \
+                '. + [{"name": $pkg, "current_version": $ver, "severity": "medium", "type": "outdated_package"}]')
+        done <<< "$updates"
+    fi
+    
+    # Check for known vulnerable packages
+    local vuln_packages=("openssl" "openssh" "bash" "sudo" "kernel" "glibc" "apache2" "nginx" "mysql" "php")
+    
+    for pkg in "${vuln_packages[@]}"; do
+        if dpkg -l "$pkg" &>/dev/null || rpm -q "$pkg" &>/dev/null; then
+            local ver=$(dpkg -l "$pkg" 2>/dev/null | grep "^ii" | awk '{print $3}' || rpm -q "$pkg" 2>/dev/null)
+            # Add to findings for review
+            findings=$(echo "$findings" | jq --arg pkg "$pkg" --arg ver "$ver" \
+                '. + [{"name": $pkg, "current_version": $ver, "severity": "low", "type": "security_package", "note": "Review for CVEs"}]')
+        fi
+    done
+    
+    local count=$(echo "$findings" | jq 'length')
+    echo "{\"package_manager\": \"$pkg_manager\", \"findings\": $findings, \"count\": $count}"
+}
+
+# ============================================
+# 2. PORT SCAN
+# ============================================
+scan_ports() {
+    log "Scanning open ports and services..."
+    
+    local findings="[]"
+    
+    # Get listening ports
+    local ports=$(ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null)
+    
+    # Dangerous ports to flag
+    declare -A dangerous_ports=(
+        [21]="FTP - Unencrypted file transfer"
+        [23]="Telnet - Unencrypted remote access"
+        [25]="SMTP - Mail server exposed"
+        [110]="POP3 - Unencrypted mail"
+        [143]="IMAP - Unencrypted mail"
+        [445]="SMB - Windows file sharing"
+        [1433]="MSSQL - Database exposed"
+        [3306]="MySQL - Database exposed"
+        [5432]="PostgreSQL - Database exposed"
+        [6379]="Redis - Cache exposed"
+        [27017]="MongoDB - Database exposed"
+        [11211]="Memcached - Cache exposed"
+    )
+    
+    while IFS= read -r line; do
+        [[ "$line" =~ ^State ]] && continue
+        [[ -z "$line" ]] && continue
+        
+        local addr=$(echo "$line" | awk '{print $4}')
+        local port=$(echo "$addr" | rev | cut -d':' -f1 | rev)
+        local process=$(echo "$line" | awk '{print $NF}' | sed 's/.*"\(.*\)".*/\1/')
+        
+        # Check if port is listening on all interfaces (0.0.0.0 or *)
+        local exposed="false"
+        [[ "$addr" =~ ^0\.0\.0\.0: ]] || [[ "$addr" =~ ^\*: ]] || [[ "$addr" =~ ^::: ]] && exposed="true"
+        
+        local severity="low"
+        local note=""
+        
+        if [[ -n "${dangerous_ports[$port]}" ]]; then
+            severity="high"
+            note="${dangerous_ports[$port]}"
+            [[ "$exposed" == "true" ]] && severity="critical"
+        elif [[ "$exposed" == "true" ]]; then
+            severity="medium"
+            note="Port exposed on all interfaces"
+        fi
+        
+        findings=$(echo "$findings" | jq \
+            --arg port "$port" \
+            --arg process "$process" \
+            --arg exposed "$exposed" \
+            --arg severity "$severity" \
+            --arg note "$note" \
+            '. + [{"port": ($port|tonumber), "process": $process, "exposed": ($exposed == "true"), "severity": $severity, "note": $note}]')
+        
+    done <<< "$(echo "$ports" | grep LISTEN)"
+    
+    local count=$(echo "$findings" | jq 'length')
+    echo "{\"findings\": $findings, \"count\": $count}"
+}
+
+# ============================================
+# 3. CONFIGURATION SCAN
+# ============================================
+scan_config() {
+    log "Scanning system configuration..."
+    
+    local findings="[]"
+    
+    # SSH Configuration checks
+    if [ -f /etc/ssh/sshd_config ]; then
+        # Root login enabled
+        if grep -qE "^PermitRootLogin\s+(yes|without-password)" /etc/ssh/sshd_config 2>/dev/null; then
+            findings=$(echo "$findings" | jq '. + [{"check": "SSH Root Login", "status": "enabled", "severity": "high", "recommendation": "Disable root login via SSH"}]')
+        fi
+        
+        # Password authentication enabled
+        if grep -qE "^PasswordAuthentication\s+yes" /etc/ssh/sshd_config 2>/dev/null; then
+            findings=$(echo "$findings" | jq '. + [{"check": "SSH Password Auth", "status": "enabled", "severity": "medium", "recommendation": "Use key-based authentication"}]')
+        fi
+        
+        # Default SSH port
+        if ! grep -qE "^Port\s+[0-9]+" /etc/ssh/sshd_config 2>/dev/null || grep -qE "^Port\s+22$" /etc/ssh/sshd_config 2>/dev/null; then
+            findings=$(echo "$findings" | jq '. + [{"check": "SSH Default Port", "status": "port 22", "severity": "low", "recommendation": "Consider changing default SSH port"}]')
+        fi
+    fi
+    
+    # File permissions
+    # World-writable files in sensitive directories
+    local world_writable=$(find /etc /usr -type f -perm -002 2>/dev/null | head -10)
+    if [ -n "$world_writable" ]; then
+        findings=$(echo "$findings" | jq --arg files "$world_writable" '. + [{"check": "World-writable files", "status": "found", "severity": "high", "files": ($files | split("\n")), "recommendation": "Remove world-writable permissions"}]')
+    fi
+    
+    # SUID binaries
+    local suid_count=$(find /usr -type f -perm -4000 2>/dev/null | wc -l)
+    if [ "$suid_count" -gt 50 ]; then
+        findings=$(echo "$findings" | jq --arg count "$suid_count" '. + [{"check": "SUID Binaries", "status": "excessive", "count": ($count|tonumber), "severity": "medium", "recommendation": "Review SUID binaries"}]')
+    fi
+    
+    # Firewall status
+    if ! systemctl is-active --quiet ufw 2>/dev/null && ! systemctl is-active --quiet firewalld 2>/dev/null && ! iptables -L -n 2>/dev/null | grep -q "DROP\|REJECT"; then
+        findings=$(echo "$findings" | jq '. + [{"check": "Firewall", "status": "disabled", "severity": "critical", "recommendation": "Enable and configure firewall"}]')
+    fi
+    
+    # Fail2ban status
+    if ! systemctl is-active --quiet fail2ban 2>/dev/null; then
+        findings=$(echo "$findings" | jq '. + [{"check": "Fail2ban", "status": "not running", "severity": "medium", "recommendation": "Install and enable fail2ban"}]')
+    fi
+    
+    # Unattended upgrades
+    if ! dpkg -l unattended-upgrades &>/dev/null && ! systemctl is-active --quiet dnf-automatic 2>/dev/null; then
+        findings=$(echo "$findings" | jq '. + [{"check": "Auto Updates", "status": "disabled", "severity": "medium", "recommendation": "Enable automatic security updates"}]')
+    fi
+    
+    # Check for empty passwords
+    local empty_pass=$(awk -F: '($2 == "" || $2 == "!") && $1 != "root" {print $1}' /etc/shadow 2>/dev/null | head -5)
+    if [ -n "$empty_pass" ]; then
+        findings=$(echo "$findings" | jq --arg users "$empty_pass" '. + [{"check": "Empty Passwords", "status": "found", "severity": "critical", "users": ($users | split("\n")), "recommendation": "Set passwords for all users"}]')
+    fi
+    
+    local count=$(echo "$findings" | jq 'length')
+    echo "{\"findings\": $findings, \"count\": $count}"
+}
+
+# ============================================
+# MAIN SCAN EXECUTION
+# ============================================
+main() {
+    log "Starting vulnerability scan (ID: $SCAN_ID, Type: $SCAN_TYPE)"
+    
+    local packages_result="{}"
+    local ports_result="{}"
+    local config_result="{}"
+    
+    case "$SCAN_TYPE" in
+        full)
+            packages_result=$(scan_packages)
+            ports_result=$(scan_ports)
+            config_result=$(scan_config)
+            ;;
+        packages)
+            packages_result=$(scan_packages)
+            ;;
+        ports)
+            ports_result=$(scan_ports)
+            ;;
+        config)
+            config_result=$(scan_config)
+            ;;
+    esac
+    
+    # Build final results
+    local results=$(jq -n \
+        --argjson packages "$packages_result" \
+        --argjson ports "$ports_result" \
+        --argjson config "$config_result" \
+        --arg hostname "$(hostname)" \
+        --arg scan_time "$(date -Iseconds)" \
+        '{
+            hostname: $hostname,
+            scan_time: $scan_time,
+            packages: $packages,
+            ports: $ports,
+            config: $config
+        }')
+    
+    log "Scan completed, sending results..."
+    
+    # Send results to XDR server
+    local payload=$(jq -n \
+        --arg scan_id "$SCAN_ID" \
+        --arg status "completed" \
+        --argjson results "$results" \
+        '{scan_id: $scan_id, status: $status, results: $results}')
+    
+    curl -s -X POST "https://$XDR_SERVER/api/agent/scan/results" \
+        -H "Content-Type: application/json" \
+        -H "X-Agent-ID: $AGENT_ID" \
+        -H "X-API-Key: $API_KEY" \
+        -d "$payload" 2>/dev/null || \
+    curl -s -X POST "http://$XDR_SERVER/api/agent/scan/results" \
+        -H "Content-Type: application/json" \
+        -H "X-Agent-ID: $AGENT_ID" \
+        -H "X-API-Key: $API_KEY" \
+        -d "$payload"
+    
+    log "Results sent to XDR server"
+}
+
+# Check for jq
+if ! command -v jq &>/dev/null; then
+    log "Installing jq..."
+    apt-get install -y jq &>/dev/null || yum install -y jq &>/dev/null || {
+        echo '{"error": "jq not available"}'
+        exit 1
+    }
+fi
+
+main
+BASH;
+
+        return response($script, 200)
+            ->header('Content-Type', 'text/plain')
+            ->header('Content-Disposition', 'attachment; filename="scan.sh"');
     }
 }

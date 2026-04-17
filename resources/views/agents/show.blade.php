@@ -15,6 +15,9 @@
     @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
+    @if(session('warning'))
+        <div class="alert alert-warning">{{ session('warning') }}</div>
+    @endif
 
     <div class="agent-detail-grid">
         <!-- Main Info -->
@@ -157,6 +160,19 @@
                 <a href="{{ route('agents.logs', $agent) }}" class="btn btn-secondary btn-block">
                     📋 View All Logs
                 </a>
+                
+                @if($agent->status === 'active' && $agent->os_type === 'linux')
+                <form action="{{ route('agents.scan', $agent) }}" method="POST">
+                    @csrf
+                    <button type="submit" class="btn btn-warning btn-block" onclick="return confirm('Lancer un scan de vulnérabilités sur cet agent ?')">
+                        🔍 Scan Vulnérabilités
+                    </button>
+                </form>
+                <a href="{{ route('agents.scan-results', $agent) }}" class="btn btn-secondary btn-block">
+                    📊 Résultats des Scans
+                </a>
+                @endif
+                
                 <button class="btn btn-secondary btn-block">
                     🔄 Force Sync
                 </button>
@@ -589,6 +605,21 @@
     background: rgba(34, 197, 94, 0.2);
     border: 1px solid rgba(34, 197, 94, 0.3);
     color: #22c55e;
+}
+
+.alert-warning {
+    background: rgba(234, 179, 8, 0.2);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    color: #eab308;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #fff;
+    border: none;
+}
+.btn-warning:hover {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
 }
 </style>
 

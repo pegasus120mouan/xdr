@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Agent;
 use App\Models\AgentLog;
 use App\Models\TenantGroup;
+use App\Models\VulnerabilityScan;
 use App\Support\SecurityAudit;
 use Illuminate\Http\Request;
 
@@ -590,5 +591,55 @@ POWERSHELL;
 
         return redirect()->route('agents.index')
             ->with('success', 'Agent deleted successfully.');
+    }
+
+    /**
+     * Trigger a vulnerability scan on an agent
+     */
+    public function triggerScan(Agent $agent)
+    {
+        // Check if there's already a pending scan
+        $pendingScan = VulnerabilityScan::where('agent_id', $agent->id)
+            ->whereIn('status', ['pending', 'running'])
+            ->first();
+
+        if ($pendingScan) {
+            return redirect()->route('agents.show', $agent)
+                ->with('warning', 'Un scan est déjà en cours (ID: ' . $pendingScan->scan_id . ')');
+        }
+
+        // Create new scan
+        $scan = VulnerabilityScan::create([
+            'agent_id' => $agent->id,
+            'scan_id' => VulnerabilityScan::generateScanId(),
+            'status' => 'pending',
+            'scan_type' => 'full',
+        ]);
+
+        SecurityAudit::log('vulnerability_scan.triggered', [
+            'agent_id' => $agent->agent_id,
+            'scan_id' => $scan->scan_id,
+            'hostname' => $agent->hostname,
+        ], VulnerabilityScan::class, $scan->id);
+
+        return redirect()->route('agents.show', $agent)
+            ->with('success', 'Scan de vulnérabilités lancé (ID: ' . $scan->scan_id . '). Les résultats seront disponibles dans quelques minutes.');
+    }
+
+    /**
+     * Show vulnerability scan results
+     */
+    public function scanResults(Agent $agent)
+    {
+        $scans = VulnerabilityScan::where('agent_id', $agent->id)
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+
+        $latestScan = VulnerabilityScan::where('agent_id', $agent->id)
+            ->where('status', 'completed')
+            ->orderBy('completed_at', 'desc')
+            ->first();
+
+        return view('agents.scan-results', compact('agent', 'scans', 'latestScan'));
     }
 }

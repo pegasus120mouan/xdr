@@ -85,6 +85,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/agents/{agent}', [AgentController::class, 'show'])->name('agents.show');
     Route::get('/agents/{agent}/logs', [AgentController::class, 'logs'])->name('agents.logs');
     Route::get('/agents/{agent}/install.sh', [AgentController::class, 'installScript'])->name('agents.install-script');
+    Route::post('/agents/{agent}/scan', [AgentController::class, 'triggerScan'])->name('agents.scan');
+    Route::get('/agents/{agent}/scan-results', [AgentController::class, 'scanResults'])->name('agents.scan-results');
     Route::delete('/agents/{agent}', [AgentController::class, 'delete'])
         ->middleware('admin')
         ->name('agents.delete');
