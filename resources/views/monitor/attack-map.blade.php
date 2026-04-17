@@ -150,11 +150,11 @@
     .amap-map-wrap {
         grid-row: span 2;
         position: relative;
-        min-height: 420px;
+        min-height: 580px;
     }
 
     @media (max-width: 1200px) {
-        .amap-map-wrap { grid-row: auto; min-height: 360px; }
+        .amap-map-wrap { grid-row: auto; min-height: 450px; }
     }
 
     .amap-map-inner {
@@ -609,10 +609,6 @@
                     <span class="amap-tip__sev" id="amap-tip-sev" hidden></span>
                 </div>
             </div>
-            <p class="amap-map-credit">
-                Fond carte :
-                <a href="https://commons.wikimedia.org/wiki/File:World_map_-_low_resolution.svg" target="_blank" rel="noopener noreferrer">Wikimedia Commons</a>
-            </p>
         </div>
 
         <div class="amap-panel">
