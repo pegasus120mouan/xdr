@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Asset extends Model
 {
@@ -38,6 +39,11 @@ class Asset extends Model
     public function tenantGroup(): BelongsTo
     {
         return $this->belongsTo(TenantGroup::class);
+    }
+
+    public function agent(): HasOne
+    {
+        return $this->hasOne(Agent::class, 'ip_address', 'ip_address');
     }
 
     public function scopeOnline($query)
