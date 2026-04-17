@@ -150,11 +150,11 @@
     .amap-map-wrap {
         grid-row: span 2;
         position: relative;
-        min-height: 580px;
+        min-height: 720px;
     }
 
     @media (max-width: 1200px) {
-        .amap-map-wrap { grid-row: auto; min-height: 450px; }
+        .amap-map-wrap { grid-row: auto; min-height: 550px; }
     }
 
     .amap-map-inner {
