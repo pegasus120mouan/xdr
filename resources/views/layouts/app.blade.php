@@ -905,7 +905,7 @@
                 <span class="icon">👥</span>
                 All Tenants
             </a>
-            @if(auth()->user()?->isAdmin() && auth()->user()?->isPlatformUser())
+            @if(auth()->user()?->isAdmin() && auth()->user()?->isPlatformUser() && \Illuminate\Support\Facades\Route::has('users.index'))
             <a href="{{ route('users.index') }}" class="nav-item {{ request()->routeIs('users.*') ? 'active' : '' }}">
                 <span class="icon">🔐</span>
                 Utilisateurs
