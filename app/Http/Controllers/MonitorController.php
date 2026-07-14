@@ -9,6 +9,7 @@ use App\Models\SecurityAlert;
 use App\Models\TenantGroup;
 use App\Support\AttackMapGeo;
 use App\Support\SecurityAudit;
+use App\Support\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -17,16 +18,19 @@ class MonitorController extends Controller
 {
     public function monitors()
     {
+        $user = auth()->user();
         $pendingStatuses = ['new', 'investigating', 'escalated'];
 
-        $monitoredAssets = Asset::query()
+        $monitoredAssetsQuery = Asset::query()
             ->where('is_monitored', true)
-            ->orderBy('hostname')
-            ->get(['id', 'hostname', 'ip_address', 'status', 'is_critical', 'risk_level']);
+            ->orderBy('hostname');
+        TenantContext::scopeAssets($monitoredAssetsQuery, $user);
+        $monitoredAssets = $monitoredAssetsQuery->get(['id', 'hostname', 'ip_address', 'status', 'is_critical', 'risk_level']);
 
-        $alerts = SecurityAlert::query()
-            ->whereIn('status', $pendingStatuses)
-            ->get(['target_ip', 'affected_asset']);
+        $alertsQuery = SecurityAlert::query()
+            ->whereIn('status', $pendingStatuses);
+        TenantContext::scopeAlerts($alertsQuery, $user);
+        $alerts = $alertsQuery->get(['target_ip', 'affected_asset']);
 
         $ipSet = [];
         $hostSet = [];
@@ -53,8 +57,10 @@ class MonitorController extends Controller
             }
         }
 
-        $criticalCount = Asset::where('is_critical', true)->count();
-        $riskyCount = Asset::whereIn('risk_level', ['high', 'critical'])->count();
+        $assetStats = Asset::query();
+        TenantContext::scopeAssets($assetStats, $user);
+        $criticalCount = (clone $assetStats)->where('is_critical', true)->count();
+        $riskyCount = (clone $assetStats)->whereIn('risk_level', ['high', 'critical'])->count();
 
         $blockedActiveQuery = BlockedIp::query()
             ->where('is_active', true)
@@ -66,15 +72,19 @@ class MonitorController extends Controller
         $blockedCount = (clone $blockedActiveQuery)->count();
         $blockedDistinctIps = (clone $blockedActiveQuery)->distinct()->count('ip_address');
 
-        $pendingAlertCount = SecurityAlert::whereIn('status', $pendingStatuses)->count();
-        $resolvedIncidentCount = SecurityAlert::where('status', 'resolved')->count();
-        $totalAlerts = SecurityAlert::count();
+        $alertStats = SecurityAlert::query();
+        TenantContext::scopeAlerts($alertStats, $user);
 
-        $severityOpen = SecurityAlert::query()
+        $pendingAlertCount = (clone $alertStats)->whereIn('status', $pendingStatuses)->count();
+        $resolvedIncidentCount = (clone $alertStats)->where('status', 'resolved')->count();
+        $totalAlerts = (clone $alertStats)->count();
+
+        $severityOpenQuery = SecurityAlert::query()
             ->whereIn('status', $pendingStatuses)
             ->selectRaw('severity, count(*) as c')
-            ->groupBy('severity')
-            ->pluck('c', 'severity');
+            ->groupBy('severity');
+        TenantContext::scopeAlerts($severityOpenQuery, $user);
+        $severityOpen = $severityOpenQuery->pluck('c', 'severity');
 
         $threatCategories = [
             ['key' => 'brute_force', 'short' => 'Brute force'],
@@ -85,23 +95,29 @@ class MonitorController extends Controller
             ['key' => 'command_control', 'short' => 'C & C'],
         ];
 
-        $alertsByCat = SecurityAlert::query()
+        $alertsByCatQuery = SecurityAlert::query()
             ->whereIn('security_alerts.status', $pendingStatuses)
             ->join('detection_rules as dr', 'dr.id', '=', 'security_alerts.detection_rule_id')
             ->selectRaw('dr.category, count(*) as cnt')
-            ->groupBy('dr.category')
-            ->pluck('cnt', 'category');
+            ->groupBy('dr.category');
+        $tenantIds = TenantContext::accessibleGroupIds($user);
+        if ($tenantIds !== null) {
+            $alertsByCatQuery->whereIn('security_alerts.tenant_group_id', $tenantIds);
+        }
+        $alertsByCat = $alertsByCatQuery->pluck('cnt', 'category');
 
-        $recentAlerts = SecurityAlert::query()
+        $recentAlertsQuery = SecurityAlert::query()
             ->with(['rule:id,category'])
             ->orderByDesc('last_seen')
-            ->limit(5)
-            ->get(['id', 'title', 'severity', 'status', 'affected_asset', 'target_ip', 'last_seen']);
+            ->limit(5);
+        TenantContext::scopeAlerts($recentAlertsQuery, $user);
+        $recentAlerts = $recentAlertsQuery->get(['id', 'title', 'severity', 'status', 'affected_asset', 'target_ip', 'last_seen']);
 
-        $openAlertsWithMeta = SecurityAlert::query()
+        $openAlertsWithMetaQuery = SecurityAlert::query()
             ->whereIn('status', $pendingStatuses)
-            ->orderByDesc('last_seen')
-            ->get(['target_ip', 'affected_asset', 'title']);
+            ->orderByDesc('last_seen');
+        TenantContext::scopeAlerts($openAlertsWithMetaQuery, $user);
+        $openAlertsWithMeta = $openAlertsWithMetaQuery->get(['target_ip', 'affected_asset', 'title']);
 
         $assetAlertHints = [];
         foreach ($monitoredAssets as $asset) {
@@ -127,9 +143,14 @@ class MonitorController extends Controller
                 : route('detection.alerts', ['affected' => $asset->hostname]);
         }
 
+        $oldestAsset = Asset::query();
+        TenantContext::scopeAssets($oldestAsset, $user);
+        $oldestAlert = SecurityAlert::query();
+        TenantContext::scopeAlerts($oldestAlert, $user);
+
         $oldestTs = collect([
-            Asset::min('created_at'),
-            SecurityAlert::min('created_at'),
+            $oldestAsset->min('created_at'),
+            $oldestAlert->min('created_at'),
         ])->filter()->min();
 
         $daysProtected = $oldestTs
@@ -148,7 +169,7 @@ class MonitorController extends Controller
             'pending' => $pendingAlertCount,
             'resolved' => $resolvedIncidentCount,
             'total_alerts' => $totalAlerts,
-            'online_assets' => Asset::where('status', 'online')->count(),
+            'online_assets' => (clone $assetStats)->where('status', 'online')->count(),
             'secure_state' => $secureState,
             'active_rules' => DetectionRule::where('is_active', true)->count(),
         ];
@@ -171,19 +192,21 @@ class MonitorController extends Controller
 
     public function attackMap()
     {
+        $user = auth()->user();
         $home = config('attack_map.home');
         $startOfDay = now()->startOfDay();
         $mapWindowStart = now()->subDays(7);
 
-        $todayAlerts = SecurityAlert::query()
+        $todayAlertsQuery = SecurityAlert::query()
             ->where(function ($q) use ($startOfDay) {
                 $q->where('last_seen', '>=', $startOfDay)
                     ->orWhere(function ($q2) use ($startOfDay) {
                         $q2->whereNull('last_seen')
                             ->where('created_at', '>=', $startOfDay);
                     });
-            })
-            ->get();
+            });
+        TenantContext::scopeAlerts($todayAlertsQuery, $user);
+        $todayAlerts = $todayAlertsQuery->get();
 
         $eventsToday = $todayAlerts->count();
         $attacksToday = (int) $todayAlerts->sum(fn (SecurityAlert $a) => max(1, (int) ($a->event_count ?? 0)));
@@ -194,7 +217,7 @@ class MonitorController extends Controller
             'low' => $todayAlerts->where('severity', 'low')->count(),
         ];
 
-        $recentForMap = SecurityAlert::query()
+        $recentForMapQuery = SecurityAlert::query()
             ->with(['rule:id,name,category'])
             ->where(function ($q) use ($mapWindowStart) {
                 $q->where('last_seen', '>=', $mapWindowStart)
@@ -206,8 +229,9 @@ class MonitorController extends Controller
             ->whereNotNull('source_ip')
             ->where('source_ip', '!=', '')
             ->orderByDesc('last_seen')
-            ->limit(80)
-            ->get();
+            ->limit(80);
+        TenantContext::scopeAlerts($recentForMapQuery, $user);
+        $recentForMap = $recentForMapQuery->get();
 
         $mapW = 1000;
         $mapH = 500;
@@ -295,7 +319,7 @@ class MonitorController extends Controller
         }
         $sourceCountries = array_slice($sourceCountries, 0, 8);
 
-        $typeSource = SecurityAlert::query()
+        $typeSourceQuery = SecurityAlert::query()
             ->with(['rule:id,name,category'])
             ->where(function ($q) use ($mapWindowStart) {
                 $q->where('last_seen', '>=', $mapWindowStart)
@@ -303,8 +327,9 @@ class MonitorController extends Controller
                         $q2->whereNull('last_seen')
                             ->where('created_at', '>=', $mapWindowStart);
                     });
-            })
-            ->get();
+            });
+        TenantContext::scopeAlerts($typeSourceQuery, $user);
+        $typeSource = $typeSourceQuery->get();
 
         $attackTypes = $typeSource
             ->groupBy(function (SecurityAlert $a) {
@@ -317,7 +342,7 @@ class MonitorController extends Controller
             ->sortDesc()
             ->take(8);
 
-        $topTargets = SecurityAlert::query()
+        $topTargetsQuery = SecurityAlert::query()
             ->where(function ($q) use ($mapWindowStart) {
                 $q->where('last_seen', '>=', $mapWindowStart)
                     ->orWhere(function ($q2) use ($mapWindowStart) {
@@ -330,14 +355,16 @@ class MonitorController extends Controller
             ->selectRaw('target_ip, MAX(COALESCE(affected_asset, "")) as affected_asset, COUNT(*) as c')
             ->groupBy('target_ip')
             ->orderByDesc('c')
-            ->limit(8)
-            ->get();
+            ->limit(8);
+        TenantContext::scopeAlerts($topTargetsQuery, $user);
+        $topTargets = $topTargetsQuery->get();
 
-        $recentList = SecurityAlert::query()
+        $recentListQuery = SecurityAlert::query()
             ->with(['rule:id,name,category'])
             ->orderByDesc('last_seen')
-            ->limit(25)
-            ->get();
+            ->limit(25);
+        TenantContext::scopeAlerts($recentListQuery, $user);
+        $recentList = $recentListQuery->get();
 
         $recentRows = $recentList->map(function (SecurityAlert $a) {
             $geo = $a->source_ip ? AttackMapGeo::forIp(strtolower(trim((string) $a->source_ip))) : null;
@@ -371,10 +398,15 @@ class MonitorController extends Controller
 
     public function configure()
     {
-        $assets = Asset::with('tenantGroup')->orderBy('hostname')->get();
+        $user = auth()->user();
+        $assetsQuery = Asset::with('tenantGroup')->orderBy('hostname');
+        TenantContext::scopeAssets($assetsQuery, $user);
+        $assets = $assetsQuery->get();
         $assetsByGroup = $assets->groupBy(fn (Asset $a) => $a->tenant_group_id ?? 0);
 
-        $groups = TenantGroup::orderBy('name')->get()->keyBy('id');
+        $groupsQuery = TenantGroup::orderBy('name');
+        TenantContext::scopeGroups($groupsQuery, $user);
+        $groups = $groupsQuery->get()->keyBy('id');
 
         $sections = $assetsByGroup->map(function ($groupAssets, $groupId) use ($groups) {
             $gid = (int) $groupId;
@@ -396,6 +428,7 @@ class MonitorController extends Controller
 
     public function saveConfigure(Request $request)
     {
+        $user = $request->user();
         $validated = $request->validate([
             'monitored' => 'array',
             'monitored.*' => 'integer|exists:assets,id',
@@ -403,13 +436,20 @@ class MonitorController extends Controller
 
         $ids = $validated['monitored'] ?? [];
 
-        Asset::query()->update(['is_monitored' => false]);
+        // Ne pas toucher aux actifs hors du périmètre tenant
+        $allowedAssetIds = Asset::query();
+        TenantContext::scopeAssets($allowedAssetIds, $user);
+        $allowedAssetIds = $allowedAssetIds->pluck('id')->all();
+
+        $ids = array_values(array_intersect(array_map('intval', $ids), $allowedAssetIds));
+
+        Asset::query()->whereIn('id', $allowedAssetIds)->update(['is_monitored' => false]);
         if ($ids !== []) {
             Asset::whereIn('id', $ids)->update(['is_monitored' => true]);
         }
 
         SecurityAudit::log('monitor.assets_monitored_updated', [
-            'monitored_asset_ids' => array_values($ids),
+            'monitored_asset_ids' => $ids,
             'count' => count($ids),
         ]);
 

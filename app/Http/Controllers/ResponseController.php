@@ -6,6 +6,7 @@ use App\Models\BlockedIp;
 use App\Models\DetectionRule;
 use App\Models\SecurityAlert;
 use App\Services\BruteForceDetector;
+use App\Support\TenantContext;
 
 class ResponseController extends Controller
 {
@@ -62,12 +63,18 @@ class ResponseController extends Controller
      */
     public function soar()
     {
+        $user = auth()->user();
+        $newQ = SecurityAlert::where('status', 'new');
+        TenantContext::scopeAlerts($newQ, $user);
+        $invQ = SecurityAlert::where('status', 'investigating');
+        TenantContext::scopeAlerts($invQ, $user);
+        $resQ = SecurityAlert::where('status', 'resolved')->where('resolved_at', '>=', now()->subDays(7));
+        TenantContext::scopeAlerts($resQ, $user);
+
         $alertStats = [
-            'new' => SecurityAlert::where('status', 'new')->count(),
-            'investigating' => SecurityAlert::where('status', 'investigating')->count(),
-            'resolved_week' => SecurityAlert::where('status', 'resolved')
-                ->where('resolved_at', '>=', now()->subDays(7))
-                ->count(),
+            'new' => $newQ->count(),
+            'investigating' => $invQ->count(),
+            'resolved_week' => $resQ->count(),
         ];
 
         return view('responses.soar', compact('alertStats'));

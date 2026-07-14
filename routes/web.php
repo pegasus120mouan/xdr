@@ -8,6 +8,7 @@ use App\Http\Controllers\MonitorController;
 use App\Http\Controllers\ResponseController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\ThreatHuntingController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -77,6 +78,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/tenants/assets/{asset}', [TenantController::class, 'showAsset'])->name('tenants.assets.show');
     Route::patch('/tenants/assets/{asset}', [TenantController::class, 'updateAsset'])->name('tenants.assets.update');
     Route::patch('/tenants/assets/{asset}/move', [TenantController::class, 'moveAsset'])->name('tenants.assets.move');
+
+    // Utilisateurs (admin plateforme)
+    Route::get('/users', [UserController::class, 'index'])->middleware('admin')->name('users.index');
+    Route::post('/users', [UserController::class, 'store'])->middleware('admin')->name('users.store');
+    Route::patch('/users/{user}', [UserController::class, 'update'])->middleware('admin')->name('users.update');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->middleware('admin')->name('users.destroy');
 
     // Agents
     Route::get('/agents', [AgentController::class, 'index'])->name('agents.index');

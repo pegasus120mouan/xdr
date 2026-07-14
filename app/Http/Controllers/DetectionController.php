@@ -8,6 +8,7 @@ use App\Models\LoginAttempt;
 use App\Models\SecurityAlert;
 use App\Services\IpGeolocationService;
 use App\Support\SecurityAudit;
+use App\Support\TenantContext;
 use Illuminate\Http\Request;
 
 class DetectionController extends Controller
@@ -66,8 +67,10 @@ class DetectionController extends Controller
 
     public function alerts(Request $request)
     {
+        $user = $request->user();
         $query = SecurityAlert::with('rule')
             ->orderBy('created_at', 'desc');
+        TenantContext::scopeAlerts($query, $user);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -94,12 +97,14 @@ class DetectionController extends Controller
         $severities = DetectionRule::getSeverities();
         $categories = DetectionRule::getCategories();
 
-        // Stats
+        $statsBase = SecurityAlert::query();
+        TenantContext::scopeAlerts($statsBase, $user);
+
         $stats = [
-            'total' => SecurityAlert::count(),
-            'new' => SecurityAlert::where('status', 'new')->count(),
-            'critical' => SecurityAlert::where('severity', 'critical')->whereIn('status', ['new', 'investigating'])->count(),
-            'resolved_today' => SecurityAlert::where('status', 'resolved')
+            'total' => (clone $statsBase)->count(),
+            'new' => (clone $statsBase)->where('status', 'new')->count(),
+            'critical' => (clone $statsBase)->where('severity', 'critical')->whereIn('status', ['new', 'investigating'])->count(),
+            'resolved_today' => (clone $statsBase)->where('status', 'resolved')
                 ->whereDate('resolved_at', today())
                 ->count(),
         ];
@@ -112,6 +117,7 @@ class DetectionController extends Controller
      */
     public function alertsAttackEvents(Request $request)
     {
+        $user = $request->user();
         $range = $request->get('range', '7');
         $days = match ((string) $range) {
             '1' => 1,
@@ -122,15 +128,20 @@ class DetectionController extends Controller
         $from = now()->subDays($days);
 
         $categoryLabels = DetectionRule::getCategories();
+        $tenantIds = TenantContext::accessibleGroupIds($user);
 
-        $topAttackTypes = SecurityAlert::query()
+        $topAttackTypesQuery = SecurityAlert::query()
             ->where('security_alerts.created_at', '>=', $from)
             ->join('detection_rules', 'detection_rules.id', '=', 'security_alerts.detection_rule_id')
             ->selectRaw('detection_rules.category as category, COUNT(*) as cnt')
             ->groupBy('detection_rules.category')
             ->orderByDesc('cnt')
-            ->limit(5)
-            ->get()
+            ->limit(5);
+        if ($tenantIds !== null) {
+            $topAttackTypesQuery->whereIn('security_alerts.tenant_group_id', $tenantIds);
+        }
+
+        $topAttackTypes = $topAttackTypesQuery->get()
             ->map(fn ($row) => [
                 'label' => $categoryLabels[$row->category] ?? $row->category,
                 'count' => (int) $row->cnt,
@@ -142,20 +153,24 @@ class DetectionController extends Controller
             ]);
         }
 
-        $hotEvents = SecurityAlert::query()
+        $hotEventsQuery = SecurityAlert::query()
             ->where('security_alerts.created_at', '>=', $from)
             ->join('detection_rules', 'detection_rules.id', '=', 'security_alerts.detection_rule_id')
             ->selectRaw('detection_rules.name as name, COUNT(*) as cnt')
             ->groupBy('detection_rules.name')
             ->orderByDesc('cnt')
-            ->limit(12)
-            ->get();
+            ->limit(12);
+        if ($tenantIds !== null) {
+            $hotEventsQuery->whereIn('security_alerts.tenant_group_id', $tenantIds);
+        }
+        $hotEvents = $hotEventsQuery->get();
 
         $maxHot = max(1, (int) $hotEvents->max('cnt'));
 
         $eventsQuery = SecurityAlert::with('rule')
             ->where('created_at', '>=', $from)
             ->orderByDesc('last_seen');
+        TenantContext::scopeAlerts($eventsQuery, $user);
 
         if ($request->filled('q')) {
             $term = $request->q;
@@ -201,6 +216,10 @@ class DetectionController extends Controller
 
     public function showAlert(SecurityAlert $alert)
     {
+        if (! TenantContext::userCanAccessAlert(auth()->user(), $alert)) {
+            abort(403, 'Accès refusé à cette alerte.');
+        }
+
         $alert->load(['rule', 'assignedUser', 'resolvedByUser']);
 
         return view('detections.alert-detail', compact('alert'));
@@ -208,6 +227,10 @@ class DetectionController extends Controller
 
     public function updateAlertStatus(Request $request, SecurityAlert $alert)
     {
+        if (! TenantContext::userCanAccessAlert($request->user(), $alert)) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'status' => 'required|in:new,investigating,resolved,false_positive,escalated',
             'resolution_notes' => 'nullable|string',

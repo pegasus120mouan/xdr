@@ -6,9 +6,10 @@ use App\Models\AgentLog;
 use App\Models\BlockedIp;
 use App\Models\LoginAttempt;
 use App\Models\SecurityAlert;
-use App\Services\OtxService;
 use App\Services\OpenCtiService;
+use App\Services\OtxService;
 use App\Services\ThreatMinerService;
+use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -16,15 +17,19 @@ class ThreatHuntingController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
         $q = trim((string) $request->get('q', ''));
         $since = $request->get('since', '168'); // hours, default 7d
         $sinceHours = min(720, max(1, (int) $since));
 
+        $pendingQ = SecurityAlert::whereIn('status', ['new', 'investigating']);
+        TenantContext::scopeAlerts($pendingQ, $user);
+        $criticalQ = SecurityAlert::whereIn('status', ['new', 'investigating'])->where('severity', 'critical');
+        TenantContext::scopeAlerts($criticalQ, $user);
+
         $stats = [
-            'pending_alerts' => SecurityAlert::whereIn('status', ['new', 'investigating'])->count(),
-            'critical_open' => SecurityAlert::whereIn('status', ['new', 'investigating'])
-                ->where('severity', 'critical')
-                ->count(),
+            'pending_alerts' => $pendingQ->count(),
+            'critical_open' => $criticalQ->count(),
             'failed_logins_24h' => LoginAttempt::where('successful', false)
                 ->where('attempted_at', '>=', now()->subDay())
                 ->count(),
@@ -40,12 +45,13 @@ class ThreatHuntingController extends Controller
             ->limit(8)
             ->get();
 
-        $recentCritical = SecurityAlert::with('rule')
+        $recentCriticalQ = SecurityAlert::with('rule')
             ->whereIn('status', ['new', 'investigating'])
             ->whereIn('severity', ['critical', 'high'])
             ->orderByDesc('last_seen')
-            ->limit(6)
-            ->get();
+            ->limit(6);
+        TenantContext::scopeAlerts($recentCriticalQ, $user);
+        $recentCritical = $recentCriticalQ->get();
 
         $search = null;
         if ($q !== '') {
@@ -159,7 +165,9 @@ class ThreatHuntingController extends Controller
                         ->orWhere('source_user', 'like', $like)
                         ->orWhere('affected_asset', 'like', $like);
                 });
-            })
+            });
+        TenantContext::scopeAlerts($alerts, auth()->user());
+        $alerts = $alerts
             ->orderByDesc('last_seen')
             ->limit(40)
             ->get();

@@ -9,6 +9,7 @@ class SecurityAlert extends Model
 {
     protected $fillable = [
         'detection_rule_id',
+        'tenant_group_id',
         'title',
         'description',
         'severity',
@@ -42,6 +43,11 @@ class SecurityAlert extends Model
     public function rule(): BelongsTo
     {
         return $this->belongsTo(DetectionRule::class, 'detection_rule_id');
+    }
+
+    public function tenantGroup(): BelongsTo
+    {
+        return $this->belongsTo(TenantGroup::class);
     }
 
     public function assignedUser(): BelongsTo

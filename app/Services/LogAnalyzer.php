@@ -138,6 +138,7 @@ class LogAnalyzer
         // target_ip = actif surveillé (serveur / agent)
         $alert = SecurityAlert::create([
             'detection_rule_id' => $rule['id'],
+            'tenant_group_id' => $agent->tenant_group_id,
             'title' => $rule['name'].' - '.$agent->hostname,
             'description' => $this->buildAlertDescription($rule, $log, $agent, $remoteIp, $hostIp),
             'severity' => $rule['severity'],

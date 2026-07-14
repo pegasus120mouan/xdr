@@ -7,16 +7,23 @@ use App\Models\AgentLog;
 use App\Models\TenantGroup;
 use App\Models\VulnerabilityScan;
 use App\Support\SecurityAudit;
+use App\Support\TenantContext;
 use Illuminate\Http\Request;
 
 class AgentController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
         $query = Agent::with('tenantGroup');
+        TenantContext::scopeAgents($query, $user);
 
         if ($request->filled('group')) {
-            $query->where('tenant_group_id', $request->group);
+            $groupId = (int) $request->group;
+            if (! TenantContext::userCanAccessGroup($user, $groupId)) {
+                abort(403);
+            }
+            $query->where('tenant_group_id', $groupId);
         }
 
         if ($request->filled('status')) {
@@ -24,13 +31,18 @@ class AgentController extends Controller
         }
 
         $agents = $query->orderBy('created_at', 'desc')->paginate(20);
-        $groups = TenantGroup::orderBy('name')->get();
+        $groups = TenantGroup::query()->orderBy('name');
+        TenantContext::scopeGroups($groups, $user);
+        $groups = $groups->get();
+
+        $statsBase = Agent::query();
+        TenantContext::scopeAgents($statsBase, $user);
 
         $stats = [
-            'total' => Agent::count(),
-            'active' => Agent::where('status', 'active')->count(),
-            'inactive' => Agent::where('status', 'inactive')->count(),
-            'pending' => Agent::where('status', 'pending')->count(),
+            'total' => (clone $statsBase)->count(),
+            'active' => (clone $statsBase)->where('status', 'active')->count(),
+            'inactive' => (clone $statsBase)->where('status', 'inactive')->count(),
+            'pending' => (clone $statsBase)->where('status', 'pending')->count(),
         ];
 
         return view('agents.index', compact('agents', 'groups', 'stats'));
@@ -38,14 +50,28 @@ class AgentController extends Controller
 
     public function create(Request $request)
     {
-        $groups = TenantGroup::orderBy('name')->get();
-        $selectedGroup = $request->filled('group') ? TenantGroup::find($request->group) : null;
+        $user = $request->user();
+        $groups = TenantGroup::query()->orderBy('name');
+        TenantContext::scopeGroups($groups, $user);
+        $groups = $groups->get();
+
+        $selectedGroup = null;
+        if ($request->filled('group')) {
+            $groupId = (int) $request->group;
+            if (! TenantContext::userCanAccessGroup($user, $groupId)) {
+                abort(403);
+            }
+            $selectedGroup = TenantGroup::find($groupId);
+        } elseif (! TenantContext::isUnrestricted($user)) {
+            $selectedGroup = $user->tenantGroup;
+        }
 
         return view('agents.create', compact('groups', 'selectedGroup'));
     }
 
     public function store(Request $request)
     {
+        $user = $request->user();
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'tenant_group_id' => 'required|exists:tenant_groups,id',
@@ -53,6 +79,10 @@ class AgentController extends Controller
             'log_types' => 'nullable|array',
             'log_types.*' => 'string',
         ]);
+
+        if (! TenantContext::userCanAccessGroup($user, (int) $validated['tenant_group_id'])) {
+            abort(403, 'Groupe hors de votre espace tenant.');
+        }
 
         $defaultLogTypes = $validated['os_type'] === 'windows'
             ? ['eventlog', 'security']
@@ -80,6 +110,10 @@ class AgentController extends Controller
 
     public function show(Agent $agent)
     {
+        if (! TenantContext::userCanAccessAgent(auth()->user(), $agent)) {
+            abort(403, 'Accès refusé à cet agent.');
+        }
+
         $agent->load('tenantGroup', 'logs');
 
         $recentLogs = $agent->logs()
@@ -100,6 +134,10 @@ class AgentController extends Controller
 
     public function installScript(Agent $agent)
     {
+        if (! TenantContext::userCanAccessAgent(auth()->user(), $agent)) {
+            abort(403);
+        }
+
         $serverUrl = config('app.url');
         $apiKey = $agent->api_key;
         $agentId = $agent->agent_id;
@@ -555,6 +593,10 @@ POWERSHELL;
 
     public function logs(Agent $agent, Request $request)
     {
+        if (! TenantContext::userCanAccessAgent($request->user(), $agent)) {
+            abort(403);
+        }
+
         $query = $agent->logs();
 
         if ($request->filled('severity')) {
@@ -578,6 +620,10 @@ POWERSHELL;
 
     public function delete(Agent $agent)
     {
+        if (! TenantContext::userCanAccessAgent(auth()->user(), $agent)) {
+            abort(403);
+        }
+
         $aid = $agent->id;
         $label = $agent->hostname ?? $agent->agent_id;
 
@@ -605,7 +651,7 @@ POWERSHELL;
 
         if ($pendingScan) {
             return redirect()->route('agents.show', $agent)
-                ->with('warning', 'Un scan est déjà en cours (ID: ' . $pendingScan->scan_id . ')');
+                ->with('warning', 'Un scan est déjà en cours (ID: '.$pendingScan->scan_id.')');
         }
 
         // Create new scan
@@ -623,7 +669,7 @@ POWERSHELL;
         ], VulnerabilityScan::class, $scan->id);
 
         return redirect()->route('agents.show', $agent)
-            ->with('success', 'Scan de vulnérabilités lancé (ID: ' . $scan->scan_id . '). Les résultats seront disponibles dans quelques minutes.');
+            ->with('success', 'Scan de vulnérabilités lancé (ID: '.$scan->scan_id.'). Les résultats seront disponibles dans quelques minutes.');
     }
 
     /**

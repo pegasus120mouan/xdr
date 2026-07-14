@@ -7,10 +7,11 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role'])]
+#[Fillable(['name', 'email', 'password', 'role', 'tenant_group_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -34,6 +35,11 @@ class User extends Authenticatable
         ];
     }
 
+    public function tenantGroup(): BelongsTo
+    {
+        return $this->belongsTo(TenantGroup::class);
+    }
+
     public function isAdmin(): bool
     {
         return $this->role === self::ROLE_ADMIN;
@@ -42,5 +48,11 @@ class User extends Authenticatable
     public function isAnalyst(): bool
     {
         return $this->role === self::ROLE_ANALYST;
+    }
+
+    /** Accès à toute la plateforme (pas de tenant assigné). */
+    public function isPlatformUser(): bool
+    {
+        return $this->tenant_group_id === null;
     }
 }

@@ -1,15 +1,28 @@
 @extends('layouts.app')
 
-@section('title', 'All Tenants - Wara XDR')
+@section('title', (!empty($isTenantScoped) && !empty($tenantLabel) ? $tenantLabel : 'All Tenants').' - Wara XDR')
 
 @section('content')
 <div class="page-content tenants-page">
     <div class="page-header">
-        <h1 class="page-title">All Tenants</h1>
+        <h1 class="page-title">
+            @if(!empty($isTenantScoped) && !empty($tenantLabel))
+                Espace tenant — {{ $tenantLabel }}
+            @else
+                All Tenants
+            @endif
+        </h1>
         <button class="btn btn-primary" onclick="document.getElementById('addGroupModal').style.display='flex'">
             + Add Group
         </button>
     </div>
+
+    @if(!empty($isTenantScoped))
+        <div class="tenant-scope-banner" role="status">
+            Vue isolée : vous ne voyez que les machines et groupes de <strong>{{ $tenantLabel ?? 'votre tenant' }}</strong>
+            (et sous-groupes).
+        </div>
+    @endif
 
     @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
@@ -19,7 +32,7 @@
         <!-- Tree Sidebar -->
         <div class="tree-sidebar">
             <div class="tree-header">
-                <span class="tree-title">📁 All Tenants</span>
+                <span class="tree-title">📁 {{ !empty($isTenantScoped) && !empty($tenantLabel) ? $tenantLabel : 'All Tenants' }}</span>
                 <span class="asset-count">{{ $stats['total_assets'] }} assets</span>
             </div>
             <div class="tree-container">
@@ -436,6 +449,17 @@
     height: calc(100vh - 140px);
     display: flex;
     flex-direction: column;
+}
+
+.tenant-scope-banner {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: #a5f3fc;
+    background: rgba(0, 212, 255, 0.08);
+    border: 1px solid rgba(0, 212, 255, 0.28);
+    border-radius: 8px;
 }
 
 .tenants-layout {

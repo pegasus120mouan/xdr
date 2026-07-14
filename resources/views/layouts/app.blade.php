@@ -905,6 +905,12 @@
                 <span class="icon">👥</span>
                 All Tenants
             </a>
+            @if(auth()->user()?->isAdmin() && auth()->user()?->isPlatformUser())
+            <a href="{{ route('users.index') }}" class="nav-item {{ request()->routeIs('users.*') ? 'active' : '' }}">
+                <span class="icon">🔐</span>
+                Utilisateurs
+            </a>
+            @endif
             <a href="{{ route('agents.index') }}" class="nav-item {{ request()->routeIs('agents.*') ? 'active' : '' }}">
                 <span class="icon">📡</span>
                 Log Agents
