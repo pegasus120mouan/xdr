@@ -1016,6 +1016,159 @@ BASH;
     }
 
     /**
+     * Uninstall local agent + deregister from manager.
+     * Served at GET /api/agent/uninstall.sh
+     */
+    public function uninstallScript()
+    {
+        $script = <<<'BASH'
+#!/bin/bash
+#
+# Wara XDR Agent Uninstall Script
+# Stops systemd service, removes /opt/athena-xdr, deregisters from manager
+#
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+INSTALL_DIR="/opt/athena-xdr"
+CONFIG_FILE="$INSTALL_DIR/config.conf"
+SERVICE_NAME="athena-xdr-agent"
+
+echo -e "${BLUE}"
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║              Wara XDR - Agent Uninstall                     ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo -e "${NC}"
+
+if [ "$EUID" -ne 0 ]; then
+    echo -e "${RED}[ERROR] Please run as root (sudo)${NC}"
+    exit 1
+fi
+
+XDR_MANAGER="${XDR_MANAGER:-}"
+AGENT_ID=""
+API_KEY=""
+
+if [ -f "$CONFIG_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+    XDR_MANAGER="${XDR_MANAGER:-${XDR_SERVER:-}}"
+    AGENT_ID="${AGENT_ID:-}"
+    API_KEY="${API_KEY:-}"
+fi
+
+if [ -z "$XDR_MANAGER" ] && [ -n "${XDR_SERVER:-}" ]; then
+    XDR_MANAGER="$XDR_SERVER"
+fi
+
+# Deregister from XDR manager (keeps console clean)
+if [ -n "$XDR_MANAGER" ] && [ -n "$AGENT_ID" ] && [ -n "$API_KEY" ]; then
+    echo -e "${YELLOW}[*] Deregistering agent ${AGENT_ID} from ${XDR_MANAGER}...${NC}"
+    UNREG=$(curl -ksS -X POST "https://${XDR_MANAGER}/api/agent/unregister" \
+        -H "Content-Type: application/json" \
+        -H "X-Agent-ID: ${AGENT_ID}" \
+        -H "X-API-Key: ${API_KEY}" \
+        -d "{\"delete_asset\":true}" 2>/dev/null || \
+        curl -sS -X POST "http://${XDR_MANAGER}/api/agent/unregister" \
+        -H "Content-Type: application/json" \
+        -H "X-Agent-ID: ${AGENT_ID}" \
+        -H "X-API-Key: ${API_KEY}" \
+        -d "{\"delete_asset\":true}" 2>/dev/null || true)
+    if echo "$UNREG" | grep -q '"status":"ok"'; then
+        echo -e "${GREEN}[✓] Agent removed from manager (asset deleted)${NC}"
+    else
+        echo -e "${YELLOW}[!] Manager deregister skipped or failed (local cleanup continues)${NC}"
+        [ -n "$UNREG" ] && echo "    Response: $UNREG"
+    fi
+else
+    echo -e "${YELLOW}[!] No local credentials found — skipping manager deregister${NC}"
+    echo "    Tip: set XDR_MANAGER if config.conf is already gone"
+fi
+
+echo -e "${YELLOW}[*] Stopping service ${SERVICE_NAME}...${NC}"
+systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+systemctl disable "$SERVICE_NAME" 2>/dev/null || true
+rm -f "/etc/systemd/system/${SERVICE_NAME}.service"
+systemctl daemon-reload 2>/dev/null || true
+systemctl reset-failed "$SERVICE_NAME" 2>/dev/null || true
+
+if [ -d "$INSTALL_DIR" ]; then
+    echo -e "${YELLOW}[*] Removing ${INSTALL_DIR}...${NC}"
+    rm -rf "$INSTALL_DIR"
+    echo -e "${GREEN}[✓] Install directory removed${NC}"
+else
+    echo -e "${YELLOW}[!] ${INSTALL_DIR} not found${NC}"
+fi
+
+rm -f ./athena-xdr-agent.sh ./athena-xdr-uninstall.sh 2>/dev/null || true
+
+echo -e "${GREEN}"
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║           ✓ Uninstall completed successfully!               ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo -e "${NC}"
+BASH;
+
+        return response($script, 200)
+            ->header('Content-Type', 'text/plain; charset=UTF-8')
+            ->header('Content-Disposition', 'attachment; filename="athena-xdr-uninstall.sh"');
+    }
+
+    /**
+     * Agent self-deregister (headers X-Agent-ID + X-API-Key).
+     * Optionally deletes the linked asset (default true).
+     */
+    public function unregister(Request $request): JsonResponse
+    {
+        $agentId = $request->header('X-Agent-ID');
+        $apiKey = $request->header('X-API-Key');
+
+        if (! $agentId || ! $apiKey) {
+            return response()->json(['error' => 'Missing authentication headers'], 401);
+        }
+
+        $agent = Agent::where('agent_id', $agentId)
+            ->where('api_key', $apiKey)
+            ->first();
+
+        if (! $agent) {
+            return response()->json(['error' => 'Invalid agent credentials'], 401);
+        }
+
+        $deleteAsset = $request->boolean('delete_asset', true);
+        $assetId = $agent->asset_id;
+        $hostname = $agent->hostname;
+        $ip = $agent->ip_address;
+
+        $agent->delete();
+
+        $assetDeleted = false;
+        if ($deleteAsset) {
+            if ($assetId) {
+                $assetDeleted = Asset::where('id', $assetId)->delete() > 0;
+            } elseif ($hostname || $ip) {
+                $assetDeleted = Asset::query()
+                    ->when($hostname, fn ($q) => $q->where('hostname', $hostname))
+                    ->when($ip, fn ($q) => $q->where('ip_address', $ip))
+                    ->delete() > 0;
+            }
+        }
+
+        return response()->json([
+            'status' => 'ok',
+            'message' => 'Agent unregistered',
+            'agent_id' => $agentId,
+            'asset_deleted' => $assetDeleted,
+        ]);
+    }
+
+    /**
      * Trigger a vulnerability scan on an agent
      * POST /api/agent/scan/trigger
      */

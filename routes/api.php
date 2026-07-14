@@ -10,6 +10,8 @@ Route::post('/agent/logs', [AgentApiController::class, 'receiveLogs']);
 Route::post('/agent/register', [AgentApiController::class, 'register']);
 Route::get('/agent/install.sh', [AgentApiController::class, 'installScript']);
 Route::get('/agent/install.ps1', [AgentApiController::class, 'installPowerShellScript']);
+Route::get('/agent/uninstall.sh', [AgentApiController::class, 'uninstallScript']);
+Route::post('/agent/unregister', [AgentApiController::class, 'unregister']);
 Route::get('/agent/update.sh', [AgentApiController::class, 'updateScript']);
 Route::get('/agent/scan.sh', [AgentApiController::class, 'scanScript']);
 Route::post('/agent/scan/trigger', [AgentApiController::class, 'triggerScan']);
