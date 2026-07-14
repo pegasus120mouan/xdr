@@ -10,8 +10,8 @@
         --soc-cyan-dim: rgba(0, 212, 255, 0.35);
         --soc-green: #22c55e;
         --soc-panel: rgba(10, 22, 42, 0.58);
-        --soc-font-display: 'Orbitron', system-ui, sans-serif;
-        --soc-font-mono: 'Share Tech Mono', ui-monospace, monospace;
+        --soc-font-display: "Segoe UI", system-ui, sans-serif;
+        --soc-font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
         padding: 0 24px 36px;
         background:
             radial-gradient(ellipse 100% 80% at 50% -20%, rgba(0, 140, 200, 0.12) 0%, transparent 50%),
@@ -86,7 +86,8 @@
         background-size: 48px 48px;
         transform-origin: 50% 40%;
         transform: perspective(420px) rotateX(58deg);
-        animation: soc-cyber-grid 48s linear infinite;
+        animation: none;
+        opacity: 0.12;
         mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 88%, transparent 100%);
         -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 88%, transparent 100%);
     }
@@ -104,8 +105,8 @@
             rgba(0, 212, 255, 0.045) 55%,
             transparent 100%
         );
-        animation: soc-cyber-scan 10s linear infinite;
-        opacity: 0.85;
+        animation: none;
+        display: none;
     }
 
     @keyframes soc-cyber-grid {
@@ -135,12 +136,8 @@
     }
 
     .soc-col {
-        animation: soc-col-in 0.55s ease backwards;
+        animation: none;
     }
-
-    .soc-col:nth-child(1) { animation-delay: 0.06s; }
-    .soc-col:nth-child(2) { animation-delay: 0.18s; }
-    .soc-col:nth-child(3) { animation-delay: 0.3s; }
 
     @media (prefers-reduced-motion: reduce) {
         .soc-page::before,
@@ -390,7 +387,7 @@
 
     .soc-grid {
         display: grid;
-        grid-template-columns: minmax(240px, 1fr) minmax(320px, 1.4fr) minmax(260px, 1fr);
+        grid-template-columns: minmax(220px, 0.9fr) minmax(480px, 1.8fr) minmax(240px, 0.95fr);
         gap: 20px;
         align-items: start;
     }
@@ -1321,6 +1318,440 @@
         margin: 0 auto;
     }
 
+
+    /* Cybermap Kaspersky-style (centre Monitors) */
+    .soc-panel--map {
+        padding: 0;
+        overflow: hidden;
+        min-height: 620px;
+    }
+
+    .cmap {
+        display: flex;
+        flex-direction: column;
+        min-height: 620px;
+        background:
+            radial-gradient(ellipse 70% 55% at 50% 40%, rgba(14, 70, 140, 0.35) 0%, transparent 60%),
+            linear-gradient(180deg, #061222 0%, #030a14 100%);
+    }
+
+    .cmap-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px 16px 10px;
+        border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+        flex-wrap: wrap;
+    }
+
+    .cmap-title {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #f1f5f9;
+        letter-spacing: 0.02em;
+    }
+
+    .cmap-subtitle {
+        margin: 4px 0 0;
+        font-size: 0.72rem;
+        color: #64748b;
+    }
+
+    .cmap-kpis {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .cmap-kpi {
+        min-width: 72px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.65);
+        border: 1px solid rgba(51, 65, 85, 0.7);
+        text-align: center;
+    }
+
+    .cmap-kpi--hot {
+        border-color: rgba(249, 115, 22, 0.45);
+        background: rgba(67, 20, 7, 0.35);
+    }
+
+    .cmap-kpi__val {
+        display: block;
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #fff;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+    }
+
+    .cmap-kpi__lbl {
+        font-size: 0.62rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .cmap-body {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        flex: 1;
+        min-height: 0;
+    }
+
+    @media (max-width: 1100px) {
+        .cmap-body { grid-template-columns: 1fr; }
+    }
+
+    .cmap-rank {
+        padding: 12px 12px 16px;
+        border-right: 1px solid rgba(56, 189, 248, 0.12);
+        background: rgba(2, 8, 18, 0.55);
+        overflow: auto;
+        max-height: 560px;
+    }
+
+    .cmap-rank h3 {
+        margin: 0 0 12px;
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #64748b;
+    }
+
+    .cmap-rank-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .cmap-rank-list li {
+        display: grid;
+        grid-template-columns: 16px 18px 1fr auto;
+        grid-template-rows: auto auto;
+        column-gap: 6px;
+        row-gap: 3px;
+        align-items: center;
+        font-size: 0.72rem;
+        color: #cbd5e1;
+        cursor: default;
+    }
+
+    .cmap-rank-n { color: #64748b; font-variant-numeric: tabular-nums; }
+    .cmap-rank-flag { font-size: 0.95rem; line-height: 1; }
+    .cmap-rank-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cmap-rank-list strong { color: #fbbf24; font-variant-numeric: tabular-nums; }
+    .cmap-rank-bar {
+        grid-column: 2 / -1;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(30, 58, 95, 0.7);
+        overflow: hidden;
+    }
+    .cmap-rank-bar i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #ea580c, #fbbf24);
+    }
+
+    .cmap-stage {
+        position: relative;
+        min-height: 480px;
+    }
+
+    .cmap-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    .cmap-world {
+        opacity: 0.42;
+        filter: brightness(0.55) contrast(1.2) saturate(0.4);
+    }
+
+    .cmap-arc {
+        fill: none;
+        stroke-linecap: round;
+        stroke-width: 1.4;
+        stroke-dasharray: 7 5;
+        animation: cmap-dash 2.6s linear infinite;
+        opacity: 0.88;
+    }
+
+    .cmap-flow--critical .cmap-arc,
+    .cmap-flow--high .cmap-arc { stroke: #fb923c; }
+    .cmap-flow--medium .cmap-arc { stroke: #fbbf24; }
+    .cmap-flow--low .cmap-arc { stroke: #fde047; opacity: 0.65; }
+
+    .cmap-pulse {
+        fill: #fff7ed;
+        stroke: #fb923c;
+        stroke-width: 1;
+        filter: drop-shadow(0 0 4px rgba(251, 146, 60, 0.9));
+    }
+
+    @keyframes cmap-dash {
+        to { stroke-dashoffset: -24; }
+    }
+
+    .cmap-origin-ring {
+        animation: cmap-ring 2.2s ease-in-out infinite;
+        transform-origin: center;
+        transform-box: fill-box;
+    }
+
+    @keyframes cmap-ring {
+        0%, 100% { opacity: 0.25; }
+        50% { opacity: 0.7; }
+    }
+
+    .cmap-origin-lbl {
+        font-size: 10px;
+        font-weight: 600;
+        fill: #f8fafc;
+        paint-order: stroke fill;
+        stroke: rgba(3, 7, 18, 0.9);
+        stroke-width: 3px;
+    }
+
+    .cmap-home-pulse {
+        animation: cmap-home 2.4s ease-in-out infinite;
+    }
+
+    @keyframes cmap-home {
+        0%, 100% { r: 10; opacity: 0.55; }
+        50% { r: 20; opacity: 0; }
+    }
+
+    .cmap-home-lbl {
+        font-size: 11px;
+        font-weight: 600;
+        fill: #7dd3fc;
+    }
+
+    .cmap-legend {
+        position: absolute;
+        left: 12px;
+        bottom: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 0.65rem;
+        color: #94a3b8;
+        z-index: 2;
+        background: rgba(2, 8, 18, 0.55);
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid rgba(51, 65, 85, 0.5);
+    }
+
+    .cmap-dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        margin-right: 4px;
+    }
+    .cmap-dot--hi { background: #fb923c; }
+    .cmap-dot--med { background: #fbbf24; }
+    .cmap-dot--lo { background: #fde047; }
+
+    .cmap-empty, .cmap-empty-overlay {
+        color: #64748b;
+        font-size: 0.78rem;
+    }
+
+    .cmap-empty-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: rgba(3, 10, 20, 0.35);
+        text-align: center;
+        padding: 20px;
+        z-index: 2;
+    }
+
+    .cmap-empty-overlay p {
+        margin: 0;
+        color: #cbd5e1;
+        font-weight: 600;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .cmap-arc, .cmap-origin-ring, .cmap-home-pulse { animation: none !important; }
+        .cmap-pulse { display: none; }
+    }
+
+    /* Liste d’actifs — panneau central sobre */
+    .soc-assets-panel {
+        min-height: 420px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .soc-assets-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    .soc-assets-title {
+        margin: 0 0 4px;
+        font-family: var(--soc-font-display);
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: none;
+        color: #e2e8f0;
+        text-shadow: none;
+    }
+
+    .soc-assets-sub {
+        margin: 0;
+        font-size: 0.78rem;
+        color: #94a3b8;
+        line-height: 1.4;
+    }
+
+    .soc-asset-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overflow: auto;
+        max-height: min(62vh, 560px);
+    }
+
+    .soc-asset-row {
+        border: 1px solid rgba(45, 55, 72, 0.9);
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.55);
+        transition: border-color 0.15s, background 0.15s;
+    }
+
+    .soc-asset-row:hover {
+        border-color: rgba(0, 212, 255, 0.35);
+        background: rgba(15, 23, 42, 0.85);
+    }
+
+    .soc-asset-row--alert {
+        border-color: rgba(239, 68, 68, 0.45);
+        background: rgba(69, 10, 10, 0.25);
+    }
+
+    .soc-asset-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .soc-asset-status {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: #64748b;
+    }
+
+    .soc-asset-status--online { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15); }
+    .soc-asset-status--alerting { background: #f97316; box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15); }
+    .soc-asset-status--offline { background: #64748b; }
+    .soc-asset-status--unknown { background: #475569; }
+
+    .soc-asset-main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .soc-asset-host {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #f1f5f9;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .soc-asset-meta {
+        font-size: 0.72rem;
+        color: #94a3b8;
+        font-family: var(--soc-font-mono);
+    }
+
+    .soc-asset-badges {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    .soc-badge {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+    }
+
+    .soc-badge--alert {
+        color: #fecaca;
+        background: rgba(239, 68, 68, 0.18);
+        border-color: rgba(239, 68, 68, 0.35);
+    }
+
+    .soc-badge--muted {
+        color: #cbd5e1;
+        background: rgba(148, 163, 184, 0.12);
+        border-color: rgba(148, 163, 184, 0.2);
+    }
+
+    .soc-asset-hint {
+        margin: 0;
+        padding: 0 14px 10px 35px;
+        font-size: 0.7rem;
+        color: #fca5a5;
+        line-height: 1.35;
+    }
+
+    .soc-assets-empty {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.85rem;
+        padding: 40px 16px;
+    }
+
     .soc-flow {
         display: flex;
         flex-direction: column;
@@ -1595,111 +2026,9 @@
             </div>
         </div>
 
-        <div class="soc-col">
-            <div class="soc-panel soc-hub-wrap {{ $monitoredCount > 0 ? 'soc-hub-wrap--active' : '' }}">
-                <div class="soc-hub-visual">
-                    <div class="soc-hub" aria-label="Hub de surveillance des actifs">
-                        <div class="soc-rings">
-                            <div class="soc-ring soc-ring--1"></div>
-                            <div class="soc-ring soc-ring--2"></div>
-                            <div class="soc-ring soc-ring--3"></div>
-                        </div>
-                        <span class="soc-float-label soc-float-label--1">Attack Steps</span>
-                        <span class="soc-float-label soc-float-label--2">Contextual Detection</span>
-                        <span class="soc-float-label soc-float-label--3">IOA Monitoring</span>
-                        <span class="soc-float-label soc-float-label--4">Cloud Threat Intelligence</span>
-                        <div class="soc-core" title="Asset monitoring">X</div>
-                        <p class="soc-hub-legend">Corrélation <strong>temps réel</strong> — détection &amp; IOA</p>
-                    </div>
-                    @if($monitoredAssets->isNotEmpty())
-                        @php
-                            $step = $monitoredCount > 0 ? 360 / $monitoredCount : 0;
-                            $platR = $monitoredCount > 6 ? '108px' : '118px';
-                            $platDur = $monitoredCount > 4 ? '58s' : '48s';
-                        @endphp
-                        <div class="soc-plat-stack">
-                            <div class="soc-plat-beams" aria-hidden="true"></div>
-                            @if(!empty($showIronDome))
-                                <div class="soc-iron-dome-shell" aria-hidden="true">
-                                    <div class="soc-iron-dome__hemi"></div>
-                                    <div class="soc-iron-dome__mesh"></div>
-                                </div>
-                            @endif
-                            <div class="soc-plat-scene">
-                                <div class="soc-plat-stage">
-                                    <div class="soc-plat-floor" style="--orbit-dur: {{ $platDur }}; --orbit-r: {{ $platR }};">
-                                        <div class="soc-plat-ring" aria-hidden="true"></div>
-                                        <div class="soc-plat-orbit" role="presentation">
-                                            @foreach($monitoredAssets as $asset)
-                                                @php
-                                                    $displayLabel = $asset->ip_address ?: $asset->hostname;
-                                                    $angle = $loop->index * $step;
-                                                @endphp
-                                                <div class="soc-plat-slot" style="--a: {{ $angle }}deg;">
-                                                    <div class="soc-plat-node">
-                                                        <div class="soc-machine-wrap">
-                                                            <a href="{{ $assetAlertLinks[$asset->id] ?? route('detection.alerts') }}"
-                                                               target="_blank"
-                                                               rel="noopener noreferrer"
-                                                               class="soc-machine-link"
-                                                               aria-label="Ouvrir les alertes pour {{ $asset->hostname }}">
-                                                                <div class="soc-machine-node{{ !empty($underAttackAssetIds[$asset->id]) ? ' soc-machine-node--attack' : '' }}">
-                                                                    <div class="soc-holo-cube-wrap">
-                                                                        <div class="soc-iso-cube" title="{{ !empty($underAttackAssetIds[$asset->id]) ? $asset->hostname.' — victime d’attaque (alerte)' : $asset->hostname }}">
-                                                                            <div class="soc-iso-face soc-iso-face--top" aria-hidden="true"></div>
-                                                                            <div class="soc-iso-face soc-iso-face--right" aria-hidden="true"></div>
-                                                                            <div class="soc-iso-face soc-iso-face--front">
-                                                                                <span class="soc-iso-redstrip" aria-hidden="true"></span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div class="soc-holo-pedestal" aria-hidden="true"></div>
-                                                                    <div class="soc-holo-ip">{{ $displayLabel }}</div>
-                                                                </div>
-                                                            </a>
-                                                            @if(!empty($assetAlertHints[$asset->id]))
-                                                                <div class="soc-machine-tip" role="tooltip">{{ $assetAlertHints[$asset->id] }}<span class="soc-machine-tip__more">Ouvrir les alertes</span></div>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            @if(!empty($showIronDome))
-                                <div class="soc-iron-dome-fx" role="presentation" aria-hidden="true">
-                                    <div class="soc-iron-dome__strikes">
-                                        <span class="soc-dome-strike" style="--strike-a: -76deg; --strike-d: 0s; --strike-t: 2.45s;"></span>
-                                        <span class="soc-dome-strike" style="--strike-a: -48deg; --strike-d: 0.28s; --strike-t: 2.7s;"></span>
-                                        <span class="soc-dome-strike" style="--strike-a: -22deg; --strike-d: 0.55s; --strike-t: 2.55s;"></span>
-                                        <span class="soc-dome-strike" style="--strike-a: 5deg; --strike-d: 0.12s; --strike-t: 2.85s;"></span>
-                                        <span class="soc-dome-strike" style="--strike-a: 32deg; --strike-d: 0.65s; --strike-t: 2.5s;"></span>
-                                        <span class="soc-dome-strike" style="--strike-a: 58deg; --strike-d: 0.4s; --strike-t: 2.75s;"></span>
-                                        <span class="soc-dome-strike" style="--strike-a: 88deg; --strike-d: 0.82s; --strike-t: 2.6s;"></span>
-                                        <span class="soc-dome-strike" style="--strike-a: 118deg; --strike-d: 0.2s; --strike-t: 2.65s;"></span>
-                                        <span class="soc-dome-strike" style="--strike-a: -105deg; --strike-d: 0.5s; --strike-t: 2.8s;"></span>
-                                        <span class="soc-dome-strike" style="--strike-a: 142deg; --strike-d: 0.95s; --strike-t: 2.52s;"></span>
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-                    @endif
-                </div>
-                <div class="soc-hub-caption">
-                    <h2>Asset Monitoring</h2>
-                    @if($monitoredCount > 0)
-                        <p style="max-width: 320px;"><strong style="color:#7dd3fc;">{{ $monitoredCount }}</strong> machine(s) sur la plateforme de surveillance — flux actif vers le hub.</p>
-                        @if(!empty($showIronDome))
-                            <p style="max-width: 320px; margin: -6px auto 10px; font-size: 0.72rem; color: #22d3ee;">Dôme de fer actif — interceptions sur le bouclier.</p>
-                        @endif
-                        <a href="{{ route('monitor.configure') }}" class="soc-header__btn">Modifier la sélection</a>
-                    @else
-                        <p>La protection des actifs critiques n’est pas activée. Activez-la pour renforcer la surveillance.</p>
-                        <a href="{{ route('monitor.configure') }}" class="soc-header__btn">Configurer</a>
-                    @endif
-                </div>
+        <div class="soc-col soc-col--map">
+            <div class="soc-panel soc-panel--map">
+                @include('monitor.partials.cybermap-panel')
             </div>
         </div>
 
@@ -1737,11 +2066,6 @@
                         <br>IP sources distinctes : <strong><span class="soc-num" data-soc-count="{{ $blockedDistinctIps }}">{{ $blockedDistinctIps }}</span></strong>
                     @endif
                 </p>
-                <div class="soc-contain-visual">
-                    <div class="soc-contain-orbit">
-                        <div class="soc-contain-orbit-inner">🛡</div>
-                    </div>
-                </div>
                 <div class="soc-mini-stats">
                     <div>Surveillés<strong class="soc-num" data-soc-count="{{ $monitoredCount }}">{{ $monitoredCount }}</strong></div>
                     <div>Blocages<strong class="soc-num" data-soc-count="{{ $monitorStats['blocked'] }}">{{ $monitorStats['blocked'] }}</strong></div>

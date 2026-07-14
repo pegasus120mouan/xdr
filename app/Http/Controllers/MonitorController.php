@@ -22,10 +22,13 @@ class MonitorController extends Controller
         $pendingStatuses = ['new', 'investigating', 'escalated'];
 
         $monitoredAssetsQuery = Asset::query()
+            ->with('tenantGroup:id,name')
             ->where('is_monitored', true)
             ->orderBy('hostname');
         TenantContext::scopeAssets($monitoredAssetsQuery, $user);
-        $monitoredAssets = $monitoredAssetsQuery->get(['id', 'hostname', 'ip_address', 'status', 'is_critical', 'risk_level']);
+        $monitoredAssets = $monitoredAssetsQuery->get([
+            'id', 'hostname', 'ip_address', 'status', 'is_critical', 'risk_level', 'tenant_group_id',
+        ]);
 
         $alertsQuery = SecurityAlert::query()
             ->whereIn('status', $pendingStatuses);
@@ -174,6 +177,8 @@ class MonitorController extends Controller
             'active_rules' => DetectionRule::where('is_active', true)->count(),
         ];
 
+        $cyberMap = $this->buildCyberMapData($user);
+
         return view('monitors', [
             'monitoredAssets' => $monitoredAssets,
             'monitoredCount' => $monitoredAssets->count(),
@@ -187,12 +192,17 @@ class MonitorController extends Controller
             'assetAlertHints' => $assetAlertHints,
             'assetAlertLinks' => $assetAlertLinks,
             'blockedDistinctIps' => $blockedDistinctIps,
+            'cyberMap' => $cyberMap,
         ]);
     }
 
-    public function attackMap()
+    /**
+     * Payload carte cybermenaces (arcs, pays, KPIs) — style Kaspersky Cybermap.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildCyberMapData($user): array
     {
-        $user = auth()->user();
         $home = config('attack_map.home');
         $startOfDay = now()->startOfDay();
         $mapWindowStart = now()->subDays(7);
@@ -317,7 +327,7 @@ class MonitorController extends Controller
         foreach ($sourceCountries as $i => $row) {
             $sourceCountries[$i]['pct'] = (int) round(100 * $row['count'] / $maxSrc);
         }
-        $sourceCountries = array_slice($sourceCountries, 0, 8);
+        $sourceCountries = array_slice($sourceCountries, 0, 10);
 
         $typeSourceQuery = SecurityAlert::query()
             ->with(['rule:id,name,category'])
@@ -380,7 +390,7 @@ class MonitorController extends Controller
             ];
         });
 
-        return view('monitor.attack-map', [
+        return [
             'home' => $home,
             'mapSize' => ['w' => $mapW, 'h' => $mapH],
             'homeXY' => ['x' => $hx, 'y' => $hy],
@@ -393,7 +403,15 @@ class MonitorController extends Controller
             'recentRows' => $recentRows,
             'arcs' => $arcs,
             'originMarkers' => $originMarkers,
-        ]);
+        ];
+    }
+
+    public function attackMap()
+    {
+        $user = auth()->user();
+        $map = $this->buildCyberMapData($user);
+
+        return view('monitor.attack-map', $map);
     }
 
     public function configure()
