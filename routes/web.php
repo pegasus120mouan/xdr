@@ -5,6 +5,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DetectionController;
 use App\Http\Controllers\MonitorController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ResponseController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\ThreatHuntingController;
@@ -31,6 +32,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/monitor/configure', [MonitorController::class, 'saveConfigure'])
         ->middleware('admin')
         ->name('monitor.configure.save');
+
+    // Security reports (tenant-scoped KPIs + logo)
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::post('/reports/tenants/{group}/logo', [ReportController::class, 'updateLogo'])
+        ->middleware('admin')
+        ->name('reports.logo.update');
+    Route::delete('/reports/tenants/{group}/logo', [ReportController::class, 'deleteLogo'])
+        ->middleware('admin')
+        ->name('reports.logo.destroy');
 
     // Detection Rules
     Route::get('/detection/rules', [DetectionController::class, 'rules'])->name('detection.rules');

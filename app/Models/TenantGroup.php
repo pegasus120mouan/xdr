@@ -18,6 +18,7 @@ class TenantGroup extends Model
         'ip_range_end',
         'icon',
         'color',
+        'logo_path',
         'sort_order',
         'is_system',
     ];
@@ -25,6 +26,19 @@ class TenantGroup extends Model
     protected $casts = [
         'is_system' => 'boolean',
     ];
+
+    protected $appends = [
+        'logo_url',
+    ];
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        if (! $this->logo_path) {
+            return null;
+        }
+
+        return asset('storage/'.$this->logo_path);
+    }
 
     public function parent(): BelongsTo
     {

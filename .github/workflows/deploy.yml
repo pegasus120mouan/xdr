@@ -32,6 +32,9 @@ jobs:
             echo "🗄️ Running migrations..."
             php artisan migrate --force
 
+            echo "🔗 Ensuring public storage link..."
+            php artisan storage:link || true
+
             echo "🌱 Seeding detection rules..."
             php artisan db:seed --class=DetectionRulesSeeder --force
 

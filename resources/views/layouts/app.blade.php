@@ -115,12 +115,20 @@
         }
 
         .nav-submenu {
-            padding-left: 48px;
+            padding-left: 30px;
         }
 
         .nav-submenu .nav-item {
             padding: 8px 20px 8px 0;
             font-size: 0.8rem;
+            gap: 8px;
+        }
+
+        .nav-submenu .nav-item .icon {
+            width: 16px;
+            font-size: 0.85rem;
+            opacity: 0.85;
+            flex-shrink: 0;
         }
 
         /* Main Content */
@@ -181,22 +189,49 @@
 
         /* Alert Banner */
         .alert-banner {
-            background: rgba(234, 179, 8, 0.1);
-            border-bottom: 1px solid rgba(234, 179, 8, 0.3);
-            padding: 8px 24px;
+            background: rgba(234, 179, 8, 0.08);
+            border-top: 1px solid rgba(234, 179, 8, 0.35);
+            border-bottom: 1px solid rgba(234, 179, 8, 0.35);
+            padding: 10px 24px;
             display: flex;
             align-items: center;
             gap: 12px;
             font-size: 0.8rem;
+            color: #fde68a;
         }
 
         .alert-banner .icon {
             color: #eab308;
+            flex-shrink: 0;
+        }
+
+        .alert-banner .banner-body {
+            flex: 1;
+            min-width: 0;
+            line-height: 1.35;
+        }
+
+        .alert-banner .banner-kicker {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #fbbf24;
+            margin-bottom: 2px;
         }
 
         .alert-banner a {
-            color: #00d4ff;
+            color: #38bdf8;
             text-decoration: none;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .alert-banner a:hover {
+            color: #7dd3fc;
+            text-decoration: underline;
         }
 
         /* Status Bar */
@@ -857,22 +892,22 @@
                 Home
             </a>
             <div class="nav-submenu">
-                <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">Monitor Overview</a>
-                <a href="#" class="nav-item">Guarding Overview</a>
-                <a href="{{ route('monitor.monitors') }}" target="_blank" rel="noopener noreferrer" class="nav-item">Monitors</a>
-                <a href="{{ route('monitor.attack-map') }}" target="_blank" rel="noopener noreferrer" class="nav-item">Map Attacks</a>
-                <a href="#" class="nav-item">Reports</a>
+                <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}"><span class="icon">📡</span> Monitor Overview</a>
+                <a href="#" class="nav-item"><span class="icon">🛡️</span> Guarding Overview</a>
+                <a href="{{ route('monitor.monitors') }}" target="_blank" rel="noopener noreferrer" class="nav-item"><span class="icon">🖥️</span> Monitors</a>
+                <a href="{{ route('monitor.attack-map') }}" target="_blank" rel="noopener noreferrer" class="nav-item"><span class="icon">🗺️</span> Map Attacks</a>
+                <a href="{{ route('reports.index') }}" class="nav-item {{ request()->routeIs('reports.*') ? 'active' : '' }}"><span class="icon">📄</span> Reports</a>
             </div>
             <a href="#" class="nav-item">
                 <span class="icon">🔍</span>
                 Detections
             </a>
             <div class="nav-submenu">
-                <a href="{{ route('detection.rules') }}" class="nav-item {{ request()->routeIs('detection.rules') ? 'active' : '' }}">Detection Rules</a>
-                <a href="{{ route('detection.alerts') }}" class="nav-item {{ request()->routeIs(['detection.alerts*', 'detection.audit-log', 'detection.blocked-ips', 'detection.rules', 'detection.login-attempts']) ? 'active' : '' }}">Security Alerts <span class="badge new">NEW</span></a>
-                <a href="{{ route('detection.login-attempts') }}" class="nav-item {{ request()->routeIs('detection.login-attempts') ? 'active' : '' }}">Login Attempts</a>
-                <a href="{{ route('detection.blocked-ips') }}" class="nav-item {{ request()->routeIs('detection.blocked-ips') ? 'active' : '' }}">Blocked IPs</a>
-                <a href="#" class="nav-item">Security Logs</a>
+                <a href="{{ route('detection.rules') }}" class="nav-item {{ request()->routeIs('detection.rules') ? 'active' : '' }}"><span class="icon">⚙️</span> Detection Rules</a>
+                <a href="{{ route('detection.alerts') }}" class="nav-item {{ request()->routeIs(['detection.alerts*', 'detection.audit-log', 'detection.blocked-ips', 'detection.rules', 'detection.login-attempts']) ? 'active' : '' }}"><span class="icon">🚨</span> Security Alerts <span class="badge new">NEW</span></a>
+                <a href="{{ route('detection.login-attempts') }}" class="nav-item {{ request()->routeIs('detection.login-attempts') ? 'active' : '' }}"><span class="icon">🔑</span> Login Attempts</a>
+                <a href="{{ route('detection.blocked-ips') }}" class="nav-item {{ request()->routeIs('detection.blocked-ips') ? 'active' : '' }}"><span class="icon">🚫</span> Blocked IPs</a>
+                <a href="#" class="nav-item"><span class="icon">📋</span> Security Logs</a>
             </div>
             <a href="#" class="nav-item">
                 <span class="icon">🤖</span>
@@ -883,19 +918,19 @@
                 Responses
             </a>
             <div class="nav-submenu">
-                <a href="{{ route('responses.auto-containment') }}" class="nav-item {{ request()->routeIs('responses.auto-containment') ? 'active' : '' }}">Auto Containment <span class="badge new">NEW</span></a>
-                <a href="{{ route('responses.index') }}" class="nav-item {{ request()->routeIs('responses.index') ? 'active' : '' }}">Responses</a>
-                <a href="{{ route('responses.soar') }}" class="nav-item {{ request()->routeIs('responses.soar') ? 'active' : '' }}">SOAR</a>
-                <a href="#" class="nav-item">Ticketing System</a>
+                <a href="{{ route('responses.auto-containment') }}" class="nav-item {{ request()->routeIs('responses.auto-containment') ? 'active' : '' }}"><span class="icon">🔒</span> Auto Containment <span class="badge new">NEW</span></a>
+                <a href="{{ route('responses.index') }}" class="nav-item {{ request()->routeIs('responses.index') ? 'active' : '' }}"><span class="icon">⚔️</span> Responses</a>
+                <a href="{{ route('responses.soar') }}" class="nav-item {{ request()->routeIs('responses.soar') ? 'active' : '' }}"><span class="icon">🧩</span> SOAR</a>
+                <a href="#" class="nav-item"><span class="icon">🎫</span> Ticketing System</a>
             </div>
             <a href="#" class="nav-item">
                 <span class="icon">⚠️</span>
                 Risk Management
             </a>
             <div class="nav-submenu">
-                <a href="#" class="nav-item">Weaknesses</a>
-                <a href="#" class="nav-item">Asset Check 🔥</a>
-                <a href="#" class="nav-item">Risky Apps</a>
+                <a href="#" class="nav-item"><span class="icon">🕳️</span> Weaknesses</a>
+                <a href="#" class="nav-item"><span class="icon">🔥</span> Asset Check</a>
+                <a href="#" class="nav-item"><span class="icon">📲</span> Risky Apps</a>
             </div>
             <a href="{{ route('threat-hunting.index') }}" class="nav-item {{ request()->routeIs('threat-hunting.*') ? 'active' : '' }}">
                 <span class="icon">🎯</span>
@@ -956,12 +991,17 @@
             </div>
         </header>
 
-        <!-- Alert Banner -->
-        <div class="alert-banner">
-            <span class="icon">⚠️</span>
-            <span>The current response allowlist lacks valid data, and auto containment is downgraded to monitoring mode. Please handle it promptly to prevent high network risks.</span>
-            <a href="#">Go to Allowlist</a>
+        {{-- Banner réel : mode surveillance si aucune règle brute-force active avec block_ip --}}
+        @if(empty($containmentEnforced))
+        <div class="alert-banner" role="status">
+            <span class="icon" aria-hidden="true">⚠</span>
+            <div class="banner-body">
+                <span class="banner-kicker">Auto Containment — mode surveillance</span>
+                <span>Le blocage automatique des IP n’est pas actif. Les détections restent visibles, sans réponse réseau automatique.</span>
+            </div>
+            <a href="{{ route('responses.auto-containment') }}">Configurer →</a>
         </div>
+        @endif
 
         <!-- Status Bar -->
         <div class="status-bar">
