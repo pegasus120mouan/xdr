@@ -513,26 +513,139 @@
         font-size: 0.72rem;
     }
 
-    .soc-funnel {
-        margin-top: 16px;
-        text-align: center;
-        font-size: 0.7rem;
-        color: #64748b;
-    }
-
-    .soc-funnel-steps {
+    .soc-org {
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        margin: 10px 0;
+        gap: 12px;
     }
 
-    .soc-funnel-steps span {
-        padding: 6px;
-        background: rgba(0, 212, 255, 0.08);
-        border: 1px solid rgba(0, 212, 255, 0.15);
-        border-radius: 4px;
+    .soc-org-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .soc-org-head h3 {
+        margin: 0;
+    }
+
+    .soc-org-link {
+        font-size: 0.68rem;
+        color: #38bdf8;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .soc-org-link:hover {
+        text-decoration: underline;
+        color: #7dd3fc;
+    }
+
+    .soc-org-kpis {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .soc-org-kpi {
+        padding: 10px 10px 9px;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.55);
+        border: 1px solid rgba(51, 65, 85, 0.65);
+    }
+
+    .soc-org-kpi__val {
+        display: block;
+        font-size: 1.05rem;
+        font-weight: 700;
+        font-family: var(--soc-font-mono);
+        color: #f1f5f9;
+        line-height: 1.15;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .soc-org-kpi__lbl {
+        display: block;
+        margin-top: 2px;
+        font-size: 0.65rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .soc-org-kpi--ok .soc-org-kpi__val { color: #4ade80; }
+    .soc-org-kpi--warn .soc-org-kpi__val { color: #fb923c; }
+    .soc-org-kpi--hot .soc-org-kpi__val { color: #f87171; }
+
+    .soc-org-table-wrap {
+        border: 1px solid rgba(51, 65, 85, 0.55);
+        border-radius: 8px;
+        overflow: hidden;
+        background: rgba(2, 8, 18, 0.35);
+    }
+
+    .soc-org .soc-table {
+        margin-top: 0;
+    }
+
+    .soc-org .soc-table th {
+        background: rgba(15, 23, 42, 0.75);
+        padding: 8px 10px;
+        position: sticky;
+        top: 0;
+    }
+
+    .soc-org .soc-table td {
+        padding: 8px 10px;
+        vertical-align: middle;
+    }
+
+    .soc-org .soc-table td:first-child {
+        color: #e2e8f0;
+        font-weight: 500;
+        max-width: 140px;
+    }
+
+    .soc-sev-pill {
+        display: inline-block;
+        padding: 2px 7px;
+        border-radius: 999px;
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        background: rgba(100, 116, 139, 0.25);
+        color: #cbd5e1;
+    }
+
+    .soc-sev-pill--critical,
+    .soc-sev-pill--high {
+        background: rgba(239, 68, 68, 0.18);
+        color: #fca5a5;
+    }
+
+    .soc-sev-pill--medium {
+        background: rgba(249, 115, 22, 0.18);
+        color: #fdba74;
+    }
+
+    .soc-sev-pill--low,
+    .soc-sev-pill--info {
+        background: rgba(34, 197, 94, 0.15);
+        color: #86efac;
+    }
+
+    .soc-org-asset {
         color: #94a3b8;
+        font-family: var(--soc-font-mono);
+        font-size: 0.62rem;
+    }
+
+    .soc-org-time {
+        color: #64748b;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
     }
 
     /* Center hub — animated */
@@ -1882,15 +1995,35 @@
     }
 
     .soc-sev-bar {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-top: 8px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
         font-size: 0.65rem;
     }
 
-    .soc-sev-bar span { color: #64748b; }
-    .soc-sev-bar strong { color: #cbd5e1; }
+    .soc-sev-chip {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 8px 4px;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid rgba(51, 65, 85, 0.55);
+        color: #64748b;
+    }
+
+    .soc-sev-chip strong {
+        font-size: 0.95rem;
+        font-family: var(--soc-font-mono);
+        font-variant-numeric: tabular-nums;
+        color: #e2e8f0;
+    }
+
+    .soc-sev-chip--critical strong { color: #f87171; }
+    .soc-sev-chip--high strong { color: #fb923c; }
+    .soc-sev-chip--medium strong { color: #fbbf24; }
+    .soc-sev-chip--low strong { color: #4ade80; }
 
     .soc-header__actions {
         display: flex;
@@ -1987,40 +2120,75 @@
                 </div>
             </div>
             <div class="soc-panel" style="margin-top:16px;">
-                <h3>Vue organisationnelle</h3>
-                <div class="soc-funnel">
-                    <div class="soc-funnel-steps">
-                        <span>Alertes de sécurité massives</span>
-                        <span>Moteur d’analyse multivariée</span>
-                        <span>Réduction alertes homme-machine</span>
-                        <span>Incidents résolus / total ({{ $monitorStats['resolved'] }}/{{ $monitorStats['total_alerts'] }})</span>
+                @php
+                    $resolved = (int) ($monitorStats['resolved'] ?? 0);
+                    $totalAlerts = max(1, (int) ($monitorStats['total_alerts'] ?? 0));
+                    $pending = (int) ($monitorStats['pending'] ?? 0);
+                    $resolveRate = round(($resolved / $totalAlerts) * 100, 1);
+                @endphp
+                <div class="soc-org">
+                    <div class="soc-org-head">
+                        <h3>Incidents récents</h3>
+                        <a href="{{ route('detection.alerts') }}" class="soc-org-link">Toutes les alertes →</a>
                     </div>
-                    <table class="soc-table">
-                        <thead>
-                            <tr>
-                                <th>Incident</th>
-                                <th>Gravité</th>
-                                <th>Actif</th>
-                                <th>Heure</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($recentAlerts as $ra)
-                                <tr>
-                                    <td>{{ \Illuminate\Support\Str::limit($ra->title, 42) }}</td>
-                                    <td>{{ $ra->severity }}</td>
-                                    <td>{{ $ra->affected_asset ?: ($ra->target_ip ?: '—') }}</td>
-                                    <td>{{ optional($ra->last_seen)->format('d/m H:i') ?? '—' }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="4" style="text-align:center;padding:16px;">Aucune alerte récente</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                    <div class="soc-sev-bar">
+
+                    <div class="soc-org-kpis">
+                        <div class="soc-org-kpi soc-org-kpi--warn">
+                            <span class="soc-org-kpi__val soc-num" data-soc-count="{{ $pending }}">{{ number_format($pending) }}</span>
+                            <span class="soc-org-kpi__lbl">Ouverts</span>
+                        </div>
+                        <div class="soc-org-kpi soc-org-kpi--ok">
+                            <span class="soc-org-kpi__val soc-num" data-soc-count="{{ $resolved }}">{{ number_format($resolved) }}</span>
+                            <span class="soc-org-kpi__lbl">Résolus</span>
+                        </div>
+                        <div class="soc-org-kpi">
+                            <span class="soc-org-kpi__val soc-num" data-soc-count="{{ (int) $monitorStats['total_alerts'] }}">{{ number_format((int) $monitorStats['total_alerts']) }}</span>
+                            <span class="soc-org-kpi__lbl">Total</span>
+                        </div>
+                        <div class="soc-org-kpi{{ $resolveRate < 5 ? ' soc-org-kpi--hot' : '' }}">
+                            <span class="soc-org-kpi__val">{{ $resolveRate }}%</span>
+                            <span class="soc-org-kpi__lbl">Taux résolu</span>
+                        </div>
+                    </div>
+
+                    <div class="soc-sev-bar" aria-label="Répartition par gravité (ouvertes)">
                         @foreach(['critical' => 'Critical', 'high' => 'High', 'medium' => 'Medium', 'low' => 'Low'] as $sevKey => $sevLabel)
-                            <span>{{ $sevLabel }} <strong class="soc-num" data-soc-count="{{ (int) ($severityOpen[$sevKey] ?? 0) }}">{{ (int) ($severityOpen[$sevKey] ?? 0) }}</strong></span>
+                            <div class="soc-sev-chip soc-sev-chip--{{ $sevKey }}">
+                                <strong class="soc-num" data-soc-count="{{ (int) ($severityOpen[$sevKey] ?? 0) }}">{{ number_format((int) ($severityOpen[$sevKey] ?? 0)) }}</strong>
+                                <span>{{ $sevLabel }}</span>
+                            </div>
                         @endforeach
+                    </div>
+
+                    <div class="soc-org-table-wrap">
+                        <table class="soc-table">
+                            <thead>
+                                <tr>
+                                    <th>Incident</th>
+                                    <th>Gravité</th>
+                                    <th>Actif</th>
+                                    <th>Heure</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($recentAlerts as $ra)
+                                    <tr>
+                                        <td title="{{ $ra->title }}">{{ \Illuminate\Support\Str::limit($ra->title, 36) }}</td>
+                                        <td>
+                                            <span class="soc-sev-pill soc-sev-pill--{{ $ra->severity }}">{{ $ra->severity }}</span>
+                                        </td>
+                                        <td class="soc-org-asset" title="{{ $ra->affected_asset ?: ($ra->target_ip ?: '') }}">
+                                            {{ \Illuminate\Support\Str::limit($ra->affected_asset ?: ($ra->target_ip ?: '—'), 22) }}
+                                        </td>
+                                        <td class="soc-org-time">{{ optional($ra->last_seen)->format('d/m H:i') ?? '—' }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" style="text-align:center;padding:18px;color:#64748b;">Aucun incident récent</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
