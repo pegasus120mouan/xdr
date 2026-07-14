@@ -11,7 +11,11 @@ return [
     | désactiver les appels sortants.
     */
 
-    'enabled' => env('IP_GEO_ENABLED', true),
+    // ip-api.com free tier is non-commercial — disabled by default in production.
+    'enabled' => filter_var(
+        env('IP_GEO_ENABLED', env('APP_ENV') === 'production' ? false : true),
+        FILTER_VALIDATE_BOOLEAN
+    ),
 
     /** Durée de cache par IP (secondes) */
     'cache_ttl' => (int) env('IP_GEO_CACHE_TTL', 604800),

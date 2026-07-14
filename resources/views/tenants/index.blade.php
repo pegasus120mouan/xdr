@@ -1274,10 +1274,14 @@ function updateScript() {
 
 function generateLinuxScript(server, agentName, groupName, arch, version) {
     const nameParam = agentName ? ` \\\n<span class="param">XDR_AGENT_NAME</span>=<span class="value">'${agentName}'</span>` : '';
-    
+    const token = @json($enrollmentToken);
+    const tokenLine = token
+        ? ` \\\n<span class="param">XDR_ENROLLMENT_TOKEN</span>=<span class="value">'${token.replace(/'/g, "'\\''")}'</span>`
+        : ` \\\n<span class="param">XDR_ENROLLMENT_TOKEN</span>=<span class="value">'YOUR_ENROLLMENT_TOKEN'</span>`;
+
     return `<span class="cmd">curl</span> <span class="param">-ksS</span> <span class="value">https://${server}/api/agent/install.sh</span> <span class="param">-o</span> athena-xdr-agent.sh \\
 && <span class="cmd">sudo</span> <span class="param">XDR_MANAGER</span>=<span class="value">'${server}'</span> \\
-<span class="param">XDR_AGENT_GROUP</span>=<span class="value">'${groupName}'</span>${nameParam} \\
+<span class="param">XDR_AGENT_GROUP</span>=<span class="value">'${groupName}'</span>${nameParam}${tokenLine} \\
 <span class="cmd">bash</span> ./athena-xdr-agent.sh`;
 }
 
@@ -1288,12 +1292,14 @@ function psQuote(s) {
 function generateWindowsScript(server, agentName, groupName, arch) {
     const s = psQuote(server);
     const g = psQuote(groupName);
+    const token = @json($enrollmentToken) || 'YOUR_ENROLLMENT_TOKEN';
     const nameParam = agentName ? ` <span class="param">-AgentName</span> <span class="value">'${psQuote(agentName)}'</span>` : '';
+    const tokenParam = ` <span class="param">-EnrollmentToken</span> <span class="value">'${psQuote(token)}'</span>`;
     const ps1Url = `https://${server}/api/agent/install.ps1`;
 
     // Two lines for readability; no trailing "\" (invalid in PowerShell). Copy uses innerText so line breaks are preserved.
     const line1 = `<span class="cmd">Invoke-WebRequest</span> <span class="param">-UseBasicParsing</span> <span class="param">-Uri</span> <span class="value">'${ps1Url}'</span> <span class="param">-OutFile</span> <span class="value">'athena-agent.ps1'</span>`;
-    const line2 = `<span class="cmd">powershell.exe</span> <span class="param">-ExecutionPolicy Bypass -File</span> <span class="value">'.\\athena-agent.ps1'</span> <span class="param">-Server</span> <span class="value">'${s}'</span> <span class="param">-Group</span> <span class="value">'${g}'</span>${nameParam}`;
+    const line2 = `<span class="cmd">powershell.exe</span> <span class="param">-ExecutionPolicy Bypass -File</span> <span class="value">'.\\athena-agent.ps1'</span> <span class="param">-Server</span> <span class="value">'${s}'</span> <span class="param">-Group</span> <span class="value">'${g}'</span>${nameParam}${tokenParam}`;
 
     return `${line1}<br>${line2}`;
 }

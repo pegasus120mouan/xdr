@@ -6,6 +6,7 @@ use App\Models\BlockedIp;
 use App\Models\DetectionRule;
 use App\Models\LoginAttempt;
 use App\Models\SecurityAlert;
+use App\Models\User;
 use App\Services\IpGeolocationService;
 use App\Support\SecurityAudit;
 use App\Support\TenantContext;
@@ -259,15 +260,43 @@ class DetectionController extends Controller
 
     public function blockedIps()
     {
-        $blockedIps = BlockedIp::with(['alert', 'blockedByUser'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $user = auth()->user();
+        $query = BlockedIp::with(['alert', 'blockedByUser'])
+            ->orderBy('created_at', 'desc');
+
+        $scopeIds = TenantContext::accessibleGroupIds($user);
+        if ($scopeIds !== null) {
+            $tenantUserIds = User::query()
+                ->whereIn('tenant_group_id', $scopeIds)
+                ->pluck('id');
+
+            $query->where(function ($q) use ($scopeIds, $tenantUserIds) {
+                $q->whereHas('alert', fn ($a) => $a->whereIn('tenant_group_id', $scopeIds));
+                if ($tenantUserIds->isNotEmpty()) {
+                    $q->orWhereIn('blocked_by', $tenantUserIds->all());
+                }
+            });
+        }
+
+        $blockedIps = $query->paginate(20);
 
         return view('detections.blocked-ips', compact('blockedIps'));
     }
 
     public function unblockIp(BlockedIp $blockedIp)
     {
+        $user = auth()->user();
+        $blockedIp->loadMissing('alert');
+        if (! TenantContext::isUnrestricted($user)) {
+            $scopeIds = TenantContext::accessibleGroupIds($user) ?? [];
+            $alertGid = $blockedIp->alert?->tenant_group_id;
+            $allowed = ($alertGid !== null && in_array((int) $alertGid, $scopeIds, true))
+                || ($blockedIp->blocked_by && User::where('id', $blockedIp->blocked_by)->whereIn('tenant_group_id', $scopeIds)->exists());
+            if (! $allowed) {
+                abort(403);
+            }
+        }
+
         $blockedIp->update(['is_active' => false]);
 
         SecurityAudit::log('blocked_ip.deactivated', [
@@ -285,6 +314,13 @@ class DetectionController extends Controller
             'duration' => 'nullable|integer|min:1',
             'security_alert_id' => 'nullable|integer|exists:security_alerts,id',
         ]);
+
+        if (! empty($validated['security_alert_id'])) {
+            $alert = SecurityAlert::find($validated['security_alert_id']);
+            if (! $alert || ! TenantContext::userCanAccessAlert($request->user(), $alert)) {
+                abort(403, 'Alerte hors de votre espace.');
+            }
+        }
 
         $blocked = BlockedIp::block(
             $validated['ip_address'],
@@ -306,8 +342,29 @@ class DetectionController extends Controller
 
     public function loginAttempts(Request $request)
     {
+        $user = $request->user();
         $query = LoginAttempt::with('user')
             ->orderBy('attempted_at', 'desc');
+
+        $scopeIds = TenantContext::accessibleGroupIds($user);
+        $tenantEmails = null;
+        $tenantUserIds = null;
+        if ($scopeIds !== null) {
+            $tenantUsers = User::query()->whereIn('tenant_group_id', $scopeIds)->get(['id', 'email']);
+            $tenantUserIds = $tenantUsers->pluck('id');
+            $tenantEmails = $tenantUsers->pluck('email')->filter()->values();
+            $query->where(function ($q) use ($tenantUserIds, $tenantEmails) {
+                if ($tenantUserIds->isNotEmpty()) {
+                    $q->whereIn('user_id', $tenantUserIds->all());
+                }
+                if ($tenantEmails->isNotEmpty()) {
+                    $q->orWhereIn('email', $tenantEmails->all());
+                }
+                if ($tenantUserIds->isEmpty() && $tenantEmails->isEmpty()) {
+                    $q->whereRaw('0 = 1');
+                }
+            });
+        }
 
         if ($request->filled('ip')) {
             $query->where('ip_address', 'like', "%{$request->ip}%");
@@ -323,10 +380,25 @@ class DetectionController extends Controller
 
         $attempts = $query->paginate(50);
 
+        $statsBase = LoginAttempt::query()->whereDate('attempted_at', today());
+        if ($scopeIds !== null) {
+            $statsBase->where(function ($q) use ($tenantUserIds, $tenantEmails) {
+                if ($tenantUserIds && $tenantUserIds->isNotEmpty()) {
+                    $q->whereIn('user_id', $tenantUserIds->all());
+                }
+                if ($tenantEmails && $tenantEmails->isNotEmpty()) {
+                    $q->orWhereIn('email', $tenantEmails->all());
+                }
+                if ((! $tenantUserIds || $tenantUserIds->isEmpty()) && (! $tenantEmails || $tenantEmails->isEmpty())) {
+                    $q->whereRaw('0 = 1');
+                }
+            });
+        }
+
         $stats = [
-            'total_today' => LoginAttempt::whereDate('attempted_at', today())->count(),
-            'failed_today' => LoginAttempt::whereDate('attempted_at', today())->where('successful', false)->count(),
-            'unique_ips' => LoginAttempt::whereDate('attempted_at', today())->distinct('ip_address')->count('ip_address'),
+            'total_today' => (clone $statsBase)->count(),
+            'failed_today' => (clone $statsBase)->where('successful', false)->count(),
+            'unique_ips' => (clone $statsBase)->distinct('ip_address')->count('ip_address'),
         ];
 
         return view('detections.login-attempts', compact('attempts', 'stats'));

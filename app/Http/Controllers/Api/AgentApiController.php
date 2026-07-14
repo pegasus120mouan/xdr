@@ -211,6 +211,21 @@ class AgentApiController extends Controller
 
     public function register(Request $request): JsonResponse
     {
+        $expected = (string) config('xdr.enrollment_token', '');
+        if ($expected === '') {
+            return response()->json([
+                'error' => 'Agent enrollment is disabled: set XDR_ENROLLMENT_TOKEN on the manager.',
+            ], 503);
+        }
+
+        $provided = (string) ($request->header('X-Enrollment-Token')
+            ?? $request->input('enrollment_token')
+            ?? '');
+
+        if ($provided === '' || ! hash_equals($expected, $provided)) {
+            return response()->json(['error' => 'Invalid enrollment token'], 401);
+        }
+
         $data = $request->validate([
             'hostname' => 'required|string',
             'ip_address' => 'nullable|string',
@@ -218,12 +233,12 @@ class AgentApiController extends Controller
             'os_version' => 'nullable|string',
             'group_name' => 'required|string',
             'agent_name' => 'nullable|string',
+            'enrollment_token' => 'nullable|string',
         ]);
 
-        // Find or create the group
-        $group = \App\Models\TenantGroup::where('name', $data['group_name'])
-            ->orWhere('slug', \Illuminate\Support\Str::slug($data['group_name']))
-            ->first();
+        // Find the group (exact name, then slug)
+        $group = \App\Models\TenantGroup::where('name', $data['group_name'])->first()
+            ?? \App\Models\TenantGroup::where('slug', \Illuminate\Support\Str::slug($data['group_name']))->first();
 
         if (!$group) {
             return response()->json(['error' => 'Group not found'], 404);
@@ -284,6 +299,7 @@ NC='\033[0m'
 XDR_MANAGER="${XDR_MANAGER:-}"
 XDR_AGENT_GROUP="${XDR_AGENT_GROUP:-default}"
 XDR_AGENT_NAME="${XDR_AGENT_NAME:-$(hostname)}"
+XDR_ENROLLMENT_TOKEN="${XDR_ENROLLMENT_TOKEN:-}"
 INSTALL_DIR="/opt/athena-xdr"
 
 echo -e "${BLUE}"
@@ -295,7 +311,13 @@ echo -e "${NC}"
 # Check required vars
 if [ -z "$XDR_MANAGER" ]; then
     echo -e "${RED}[ERROR] XDR_MANAGER environment variable is required${NC}"
-    echo "Usage: XDR_MANAGER='your-server-ip' XDR_AGENT_GROUP='group-name' bash install.sh"
+    echo "Usage: XDR_MANAGER='host' XDR_AGENT_GROUP='group' XDR_ENROLLMENT_TOKEN='secret' bash install.sh"
+    exit 1
+fi
+
+if [ -z "$XDR_ENROLLMENT_TOKEN" ]; then
+    echo -e "${RED}[ERROR] XDR_ENROLLMENT_TOKEN is required${NC}"
+    echo "Ask your XDR admin for the enrollment token (XDR_ENROLLMENT_TOKEN)."
     exit 1
 fi
 
@@ -310,22 +332,26 @@ echo -e "${YELLOW}[*] Registering agent with XDR server...${NC}"
 # Register agent and get API key
 REGISTER_RESPONSE=$(curl -s -X POST "https://${XDR_MANAGER}/api/agent/register" \
     -H "Content-Type: application/json" \
+    -H "X-Enrollment-Token: ${XDR_ENROLLMENT_TOKEN}" \
     -d "{
         \"hostname\": \"$(hostname)\",
         \"ip_address\": \"$(hostname -I 2>/dev/null | awk '{print $1}' || echo 'unknown')\",
         \"os_type\": \"linux\",
         \"os_version\": \"$(uname -r)\",
         \"group_name\": \"${XDR_AGENT_GROUP}\",
-        \"agent_name\": \"${XDR_AGENT_NAME}\"
+        \"agent_name\": \"${XDR_AGENT_NAME}\",
+        \"enrollment_token\": \"${XDR_ENROLLMENT_TOKEN}\"
     }" 2>/dev/null || curl -s -X POST "http://${XDR_MANAGER}/api/agent/register" \
     -H "Content-Type: application/json" \
+    -H "X-Enrollment-Token: ${XDR_ENROLLMENT_TOKEN}" \
     -d "{
         \"hostname\": \"$(hostname)\",
         \"ip_address\": \"$(hostname -I 2>/dev/null | awk '{print $1}' || echo 'unknown')\",
         \"os_type\": \"linux\",
         \"os_version\": \"$(uname -r)\",
         \"group_name\": \"${XDR_AGENT_GROUP}\",
-        \"agent_name\": \"${XDR_AGENT_NAME}\"
+        \"agent_name\": \"${XDR_AGENT_NAME}\",
+        \"enrollment_token\": \"${XDR_ENROLLMENT_TOKEN}\"
     }")
 
 # Parse response
@@ -541,7 +567,10 @@ param(
     [string] $Group,
 
     [Parameter(Mandatory = $false)]
-    [string] $AgentName = ""
+    [string] $AgentName = "",
+
+    [Parameter(Mandatory = $false)]
+    [string] $EnrollmentToken = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -553,6 +582,14 @@ if ($Server -match '^\s*https?://') {
         Write-Host "[ERROR] Invalid server address." -ForegroundColor Red
         exit 1
     }
+}
+
+if ([string]::IsNullOrWhiteSpace($EnrollmentToken)) {
+    $EnrollmentToken = $env:XDR_ENROLLMENT_TOKEN
+}
+if ([string]::IsNullOrWhiteSpace($EnrollmentToken)) {
+    Write-Host "[ERROR] Enrollment token required (-EnrollmentToken or env XDR_ENROLLMENT_TOKEN)." -ForegroundColor Red
+    exit 1
 }
 
 function Get-DeviceIp {
@@ -567,17 +604,19 @@ function Invoke-XdrRegister {
     param([string] $BaseUrl)
 
     $payload = [ordered]@{
-        hostname    = $env:COMPUTERNAME
-        ip_address  = Get-DeviceIp
-        os_type     = "windows"
-        os_version  = [Environment]::OSVersion.VersionString
-        group_name  = $Group
+        hostname          = $env:COMPUTERNAME
+        ip_address        = Get-DeviceIp
+        os_type           = "windows"
+        os_version        = [Environment]::OSVersion.VersionString
+        group_name        = $Group
+        enrollment_token  = $EnrollmentToken
     }
     if ($AgentName) { $payload["agent_name"] = $AgentName }
 
     $uri = "$BaseUrl/api/agent/register"
     $body = ($payload | ConvertTo-Json -Depth 4)
-    return Invoke-RestMethod -Uri $uri -Method Post -Body $body -ContentType "application/json; charset=utf-8"
+    $headers = @{ "X-Enrollment-Token" = $EnrollmentToken }
+    return Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Body $body -ContentType "application/json; charset=utf-8"
 }
 
 Write-Host "[*] Registering agent with XDR server..." -ForegroundColor Yellow
@@ -596,7 +635,7 @@ foreach ($scheme in @("https", "http")) {
 }
 
 if (-not $registerResult -or -not $registerResult.agent_id -or -not $registerResult.api_key) {
-    Write-Host "[ERROR] Failed to register agent. Check server address, TLS, and that the tenant group exists." -ForegroundColor Red
+    Write-Host "[ERROR] Failed to register agent. Check server, TLS, group name, and enrollment token." -ForegroundColor Red
     exit 1
 }
 
@@ -1118,6 +1157,63 @@ BASH;
         return response($script, 200)
             ->header('Content-Type', 'text/plain; charset=UTF-8')
             ->header('Content-Disposition', 'attachment; filename="athena-xdr-uninstall.sh"');
+    }
+
+    /**
+     * Windows uninstall — GET /api/agent/uninstall.ps1
+     */
+    public function uninstallPowerShellScript()
+    {
+        $script = <<<'PS1'
+# Wara XDR Agent — Windows uninstall
+#requires -RunAsAdministrator
+$ErrorActionPreference = "Continue"
+
+$InstallDir = "C:\ProgramData\AthenaXDR"
+$ConfigFile = Join-Path $InstallDir "config.json"
+$TaskName = "AthenaXdrAgent"
+
+Write-Host "Wara XDR - Agent Uninstall" -ForegroundColor Cyan
+
+if (Test-Path $ConfigFile) {
+    try {
+        $Config = Get-Content $ConfigFile -Raw | ConvertFrom-Json
+        $base = [string]$Config.xdr_server
+        $agentId = [string]$Config.agent_id
+        $apiKey = [string]$Config.api_key
+        if ($base -and $agentId -and $apiKey) {
+            Write-Host "[*] Deregistering $agentId ..." -ForegroundColor Yellow
+            try {
+                Invoke-RestMethod -Uri "$($base.TrimEnd('/'))/api/agent/unregister" -Method Post -Headers @{
+                    "X-Agent-ID" = $agentId
+                    "X-API-Key"  = $apiKey
+                    "Content-Type" = "application/json"
+                } -Body '{"delete_asset":true}' | Out-Null
+                Write-Host "[OK] Removed from manager" -ForegroundColor Green
+            } catch {
+                Write-Host "[!] Manager deregister failed (local cleanup continues)" -ForegroundColor Yellow
+            }
+        }
+    } catch {}
+}
+
+Write-Host "[*] Removing scheduled task $TaskName ..." -ForegroundColor Yellow
+Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+
+if (Test-Path $InstallDir) {
+    Write-Host "[*] Removing $InstallDir ..." -ForegroundColor Yellow
+    Remove-Item -Path $InstallDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Remove-Item -Path ".\athena-agent.ps1" -Force -ErrorAction SilentlyContinue
+Remove-Item -Path ".\athena-xdr-uninstall.ps1" -Force -ErrorAction SilentlyContinue
+
+Write-Host "[OK] Uninstall completed." -ForegroundColor Green
+PS1;
+
+        return response($script, 200)
+            ->header('Content-Type', 'text/plain; charset=UTF-8')
+            ->header('Content-Disposition', 'attachment; filename="athena-xdr-uninstall.ps1"');
     }
 
     /**

@@ -51,6 +51,10 @@ class TenantController extends Controller
 
         $isTenantScoped = $allowedIds !== null;
         $tenantLabel = $user->tenantGroup?->name;
+        // Global enrollment secret — only surface to admins in the deploy UI
+        $enrollmentToken = $user->isAdmin()
+            ? (string) config('xdr.enrollment_token', '')
+            : '';
 
         return view('tenants.index', compact(
             'tree',
@@ -58,7 +62,8 @@ class TenantController extends Controller
             'assets',
             'stats',
             'isTenantScoped',
-            'tenantLabel'
+            'tenantLabel',
+            'enrollmentToken'
         ));
     }
 

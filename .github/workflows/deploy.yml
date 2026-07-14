@@ -44,7 +44,6 @@ jobs:
             php artisan view:cache
             php artisan event:cache
 
-            echo "🧹 Clearing old cache..."
-            php artisan cache:clear
-
             echo "✅ xdr deployed successfully!"
+            echo "⏱ Ensure cron: * * * * * php artisan schedule:run (xdr:prune daily)"
+            echo "🔐 Ensure .env has XDR_ENROLLMENT_TOKEN + XDR_INTEGRATION_TOKEN, APP_DEBUG=false"

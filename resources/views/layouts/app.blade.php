@@ -879,58 +879,35 @@
         </div>
 
         <nav class="nav-section">
-            <a href="#" class="nav-item">
-                <span class="icon">📊</span>
-                Functions
-            </a>
-            <a href="#" class="nav-item">
-                <span class="icon">⭐</span>
-                Favorites
-            </a>
             <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                 <span class="icon">🏠</span>
                 Home
             </a>
             <div class="nav-submenu">
                 <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}"><span class="icon">📡</span> Monitor Overview</a>
-                <a href="#" class="nav-item"><span class="icon">🛡️</span> Guarding Overview</a>
                 <a href="{{ route('monitor.monitors') }}" target="_blank" rel="noopener noreferrer" class="nav-item"><span class="icon">🖥️</span> Monitors</a>
                 <a href="{{ route('monitor.attack-map') }}" target="_blank" rel="noopener noreferrer" class="nav-item"><span class="icon">🗺️</span> Map Attacks</a>
                 <a href="{{ route('reports.index') }}" class="nav-item {{ request()->routeIs('reports.*') ? 'active' : '' }}"><span class="icon">📄</span> Reports</a>
             </div>
-            <a href="#" class="nav-item">
+            <a href="{{ route('detection.alerts') }}" class="nav-item {{ request()->routeIs('detection.*') ? 'active' : '' }}">
                 <span class="icon">🔍</span>
                 Detections
             </a>
             <div class="nav-submenu">
                 <a href="{{ route('detection.rules') }}" class="nav-item {{ request()->routeIs('detection.rules') ? 'active' : '' }}"><span class="icon">⚙️</span> Detection Rules</a>
-                <a href="{{ route('detection.alerts') }}" class="nav-item {{ request()->routeIs(['detection.alerts*', 'detection.audit-log', 'detection.blocked-ips', 'detection.rules', 'detection.login-attempts']) ? 'active' : '' }}"><span class="icon">🚨</span> Security Alerts <span class="badge new">NEW</span></a>
+                <a href="{{ route('detection.alerts') }}" class="nav-item {{ request()->routeIs('detection.alerts*') ? 'active' : '' }}"><span class="icon">🚨</span> Security Alerts</a>
                 <a href="{{ route('detection.login-attempts') }}" class="nav-item {{ request()->routeIs('detection.login-attempts') ? 'active' : '' }}"><span class="icon">🔑</span> Login Attempts</a>
                 <a href="{{ route('detection.blocked-ips') }}" class="nav-item {{ request()->routeIs('detection.blocked-ips') ? 'active' : '' }}"><span class="icon">🚫</span> Blocked IPs</a>
-                <a href="#" class="nav-item"><span class="icon">📋</span> Security Logs</a>
+                <a href="{{ route('detection.audit-log') }}" class="nav-item {{ request()->routeIs('detection.audit-log') ? 'active' : '' }}"><span class="icon">📋</span> Audit Log</a>
             </div>
-            <a href="#" class="nav-item">
-                <span class="icon">🤖</span>
-                AI Learning <span class="badge new">NEW</span>
-            </a>
             <a href="{{ route('responses.index') }}" class="nav-item {{ request()->routeIs('responses.*') ? 'active' : '' }}">
                 <span class="icon">🛡️</span>
                 Responses
             </a>
             <div class="nav-submenu">
-                <a href="{{ route('responses.auto-containment') }}" class="nav-item {{ request()->routeIs('responses.auto-containment') ? 'active' : '' }}"><span class="icon">🔒</span> Auto Containment <span class="badge new">NEW</span></a>
+                <a href="{{ route('responses.auto-containment') }}" class="nav-item {{ request()->routeIs('responses.auto-containment') ? 'active' : '' }}"><span class="icon">🔒</span> Auto Containment</a>
                 <a href="{{ route('responses.index') }}" class="nav-item {{ request()->routeIs('responses.index') ? 'active' : '' }}"><span class="icon">⚔️</span> Responses</a>
-                <a href="{{ route('responses.soar') }}" class="nav-item {{ request()->routeIs('responses.soar') ? 'active' : '' }}"><span class="icon">🧩</span> SOAR</a>
-                <a href="#" class="nav-item"><span class="icon">🎫</span> Ticketing System</a>
-            </div>
-            <a href="#" class="nav-item">
-                <span class="icon">⚠️</span>
-                Risk Management
-            </a>
-            <div class="nav-submenu">
-                <a href="#" class="nav-item"><span class="icon">🕳️</span> Weaknesses</a>
-                <a href="#" class="nav-item"><span class="icon">🔥</span> Asset Check</a>
-                <a href="#" class="nav-item"><span class="icon">📲</span> Risky Apps</a>
+                <a href="{{ route('responses.soar') }}" class="nav-item {{ request()->routeIs('responses.soar') ? 'active' : '' }}"><span class="icon">🧩</span> Orchestration</a>
             </div>
             <a href="{{ route('threat-hunting.index') }}" class="nav-item {{ request()->routeIs('threat-hunting.*') ? 'active' : '' }}">
                 <span class="icon">🎯</span>
@@ -959,28 +936,22 @@
         <header class="topbar">
             <div class="topbar-stats">
                 <div class="topbar-stat">
-                    <span>Logs</span>
+                    <span>Assets</span>
                     <span class="dot cyan"></span>
-                    <strong>23.6 m</strong>
-                    <span style="color: #22c55e;">99.9%▲</span>
+                    <strong>{{ number_format($statusBar['total'] ?? 0) }}</strong>
                 </div>
                 <div class="topbar-stat">
-                    <span>Alerts</span>
-                    <strong>30.1 k</strong>
-                    <span style="color: #22c55e;">99.3%▲</span>
+                    <span>Online</span>
+                    <strong style="color: #22c55e;">{{ number_format($statusBar['online'] ?? 0) }}</strong>
                 </div>
                 <div class="topbar-stat">
-                    <span>Incidents</span>
-                    <strong style="color: #f97316;">219</strong>
+                    <span>Open alerts</span>
+                    <strong style="color: #f97316;">{{ number_format($statusBar['open_alerts'] ?? 0) }}</strong>
                 </div>
             </div>
             <div class="topbar-right">
-                <a href="#" class="topbar-link">Licensed Services</a>
-                <a href="#" class="topbar-link">Ticketing Workflow Management</a>
-                <button class="notification-btn">
-                    🔔
-                    <span class="notification-badge">3</span>
-                </button>
+                <a href="{{ route('reports.index') }}" class="topbar-link">Reports</a>
+                <a href="{{ route('agents.index') }}" class="topbar-link">Agents</a>
                 <div class="user-menu">
                     <div class="user-avatar">{{ substr(Auth::user()->name, 0, 1) }}</div>
                 </div>
@@ -1003,27 +974,27 @@
         </div>
         @endif
 
-        <!-- Status Bar -->
+        <!-- Status Bar (live) -->
         <div class="status-bar">
             <div class="status-item">
                 <span class="dot" style="background: #22c55e;"></span>
-                <span>Native Devices:</span>
-                <span class="value">70</span>
+                <span>Online:</span>
+                <span class="value">{{ number_format($statusBar['online'] ?? 0) }}</span>
             </div>
             <div class="status-item">
                 <span class="dot" style="background: #f97316;"></span>
-                <span>Offline & Alerting Devices:</span>
-                <span class="value">41</span>
+                <span>Offline & Alerting:</span>
+                <span class="value">{{ number_format(($statusBar['offline'] ?? 0) + ($statusBar['alerting'] ?? 0)) }}</span>
             </div>
             <div class="status-item">
                 <span class="dot" style="background: #22c55e;"></span>
-                <span>Network Secure:</span>
-                <span class="value">23</span>
+                <span>Assets:</span>
+                <span class="value">{{ number_format($statusBar['total'] ?? 0) }}</span>
             </div>
             <div class="status-item">
                 <span class="dot" style="background: #00d4ff;"></span>
-                <span>Stealth Threat Analytics:</span>
-                <span class="value">12</span>
+                <span>Open alerts:</span>
+                <span class="value">{{ number_format($statusBar['open_alerts'] ?? 0) }}</span>
             </div>
         </div>
 
