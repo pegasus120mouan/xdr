@@ -13,4 +13,13 @@ return [
         'label' => env('ATTACK_MAP_HOME_LABEL', 'Côte d\'Ivoire'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Fenêtre « live » de la cybermap (arcs + classement pays)
+    |--------------------------------------------------------------------------
+    | Les flux ne restent affichés que tant qu’il y a des alertes dans cette
+    | fenêtre. Sans agent / sans nouvelles détections, la carte se vide.
+    */
+    'live_window_minutes' => (int) env('ATTACK_MAP_LIVE_WINDOW_MINUTES', 30),
+
 ];

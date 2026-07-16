@@ -500,7 +500,7 @@
 
     <div class="amap-grid">
         <div class="amap-panel">
-            <h3>Aujourd’hui</h3>
+            <h3>Live ({{ $liveWindowMinutes ?? 30 }} min)</h3>
             <div class="amap-kpis">
                 <div class="amap-kpi">
                     <div class="amap-kpi__icon" aria-hidden="true">🔔</div>

@@ -204,15 +204,16 @@ class MonitorController extends Controller
     private function buildCyberMapData($user): array
     {
         $home = config('attack_map.home');
-        $startOfDay = now()->startOfDay();
-        $mapWindowStart = now()->subDays(7);
+        $liveMinutes = max(1, (int) config('attack_map.live_window_minutes', 30));
+        $mapWindowStart = now()->subMinutes($liveMinutes);
 
+        // KPIs + arcs : même fenêtre live (ex. 30 min) — pas d’historique 7j
         $todayAlertsQuery = SecurityAlert::query()
-            ->where(function ($q) use ($startOfDay) {
-                $q->where('last_seen', '>=', $startOfDay)
-                    ->orWhere(function ($q2) use ($startOfDay) {
+            ->where(function ($q) use ($mapWindowStart) {
+                $q->where('last_seen', '>=', $mapWindowStart)
+                    ->orWhere(function ($q2) use ($mapWindowStart) {
                         $q2->whereNull('last_seen')
-                            ->where('created_at', '>=', $startOfDay);
+                            ->where('created_at', '>=', $mapWindowStart);
                     });
             });
         TenantContext::scopeAlerts($todayAlertsQuery, $user);
@@ -392,6 +393,7 @@ class MonitorController extends Controller
 
         return [
             'home' => $home,
+            'liveWindowMinutes' => $liveMinutes,
             'mapSize' => ['w' => $mapW, 'h' => $mapH],
             'homeXY' => ['x' => $hx, 'y' => $hy],
             'eventsToday' => $eventsToday,

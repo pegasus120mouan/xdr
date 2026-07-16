@@ -8,6 +8,7 @@
     $eventsToday = $cyberMap['eventsToday'];
     $attacksToday = $cyberMap['attacksToday'];
     $threatToday = $cyberMap['threatToday'];
+    $liveWindowMinutes = (int) ($cyberMap['liveWindowMinutes'] ?? 30);
     $flagEmoji = function (?string $code): string {
         $code = strtoupper(substr((string) $code, 0, 2));
         if (strlen($code) !== 2 || ! ctype_alpha($code)) {
@@ -22,7 +23,7 @@
     <div class="cmap-top">
         <div>
             <h2 class="cmap-title">Carte des cybermenaces</h2>
-            <p class="cmap-subtitle">Flux en temps réel · détections depuis 00:00 · cible {{ $home['label'] ?? 'Home' }}</p>
+            <p class="cmap-subtitle">Flux live · fenêtre {{ $liveWindowMinutes }} min · cible {{ $home['label'] ?? 'Home' }}</p>
         </div>
         <div class="cmap-kpis">
             <div class="cmap-kpi">
@@ -45,7 +46,7 @@
         <aside class="cmap-rank">
             <h3># Pays les plus attaquants</h3>
             @if(count($sourceCountries) === 0)
-                <p class="cmap-empty">Aucune IP source publique géolocalisée (7j).</p>
+                <p class="cmap-empty">Aucune IP source publique géolocalisée ({{ $liveWindowMinutes }} min).</p>
             @else
                 <ol class="cmap-rank-list">
                     @foreach($sourceCountries as $src)
@@ -129,3 +130,14 @@
         </div>
     </div>
 </div>
+
+{{-- Recharge la page Monitors pour rafraîchir la fenêtre live --}}
+<script>
+(function () {
+    var minutes = {{ $liveWindowMinutes }};
+    if (minutes < 1) return;
+    setTimeout(function () {
+        window.location.reload();
+    }, minutes * 60 * 1000);
+})();
+</script>
