@@ -20,6 +20,18 @@ class MonitorController extends Controller
     {
         $user = auth()->user();
         $pendingStatuses = ['new', 'investigating', 'escalated'];
+        $liveMinutes = max(1, (int) config('attack_map.live_window_minutes', 30));
+        $liveSince = now()->subMinutes($liveMinutes);
+
+        $scopeLive = function ($query) use ($liveSince) {
+            $query->where(function ($q) use ($liveSince) {
+                $q->where('last_seen', '>=', $liveSince)
+                    ->orWhere(function ($q2) use ($liveSince) {
+                        $q2->whereNull('last_seen')
+                            ->where('created_at', '>=', $liveSince);
+                    });
+            });
+        };
 
         $monitoredAssetsQuery = Asset::query()
             ->with('tenantGroup:id,name')
@@ -30,8 +42,10 @@ class MonitorController extends Controller
             'id', 'hostname', 'ip_address', 'status', 'is_critical', 'risk_level', 'tenant_group_id',
         ]);
 
+        // Menaces / Iron Dome : uniquement alertes de la fenêtre live
         $alertsQuery = SecurityAlert::query()
             ->whereIn('status', $pendingStatuses);
+        $scopeLive($alertsQuery);
         TenantContext::scopeAlerts($alertsQuery, $user);
         $alerts = $alertsQuery->get(['target_ip', 'affected_asset']);
 
@@ -78,14 +92,24 @@ class MonitorController extends Controller
         $alertStats = SecurityAlert::query();
         TenantContext::scopeAlerts($alertStats, $user);
 
-        $pendingAlertCount = (clone $alertStats)->whereIn('status', $pendingStatuses)->count();
-        $resolvedIncidentCount = (clone $alertStats)->where('status', 'resolved')->count();
-        $totalAlerts = (clone $alertStats)->count();
+        $pendingBacklog = (clone $alertStats)->whereIn('status', $pendingStatuses)->count();
+        $pendingAlertCount = (clone $alertStats)->whereIn('status', $pendingStatuses);
+        $scopeLive($pendingAlertCount);
+        $pendingAlertCount = $pendingAlertCount->count();
+
+        $resolvedIncidentCount = (clone $alertStats)->where('status', 'resolved');
+        $scopeLive($resolvedIncidentCount);
+        $resolvedIncidentCount = $resolvedIncidentCount->count();
+
+        $totalAlertsLive = (clone $alertStats);
+        $scopeLive($totalAlertsLive);
+        $totalAlertsLive = $totalAlertsLive->count();
 
         $severityOpenQuery = SecurityAlert::query()
             ->whereIn('status', $pendingStatuses)
             ->selectRaw('severity, count(*) as c')
             ->groupBy('severity');
+        $scopeLive($severityOpenQuery);
         TenantContext::scopeAlerts($severityOpenQuery, $user);
         $severityOpen = $severityOpenQuery->pluck('c', 'severity');
 
@@ -102,7 +126,14 @@ class MonitorController extends Controller
             ->whereIn('security_alerts.status', $pendingStatuses)
             ->join('detection_rules as dr', 'dr.id', '=', 'security_alerts.detection_rule_id')
             ->selectRaw('dr.category, count(*) as cnt')
-            ->groupBy('dr.category');
+            ->groupBy('dr.category')
+            ->where(function ($q) use ($liveSince) {
+                $q->where('security_alerts.last_seen', '>=', $liveSince)
+                    ->orWhere(function ($q2) use ($liveSince) {
+                        $q2->whereNull('security_alerts.last_seen')
+                            ->where('security_alerts.created_at', '>=', $liveSince);
+                    });
+            });
         $tenantIds = TenantContext::accessibleGroupIds($user);
         if ($tenantIds !== null) {
             $alertsByCatQuery->whereIn('security_alerts.tenant_group_id', $tenantIds);
@@ -112,13 +143,15 @@ class MonitorController extends Controller
         $recentAlertsQuery = SecurityAlert::query()
             ->with(['rule:id,category'])
             ->orderByDesc('last_seen')
-            ->limit(5);
+            ->limit(8);
+        $scopeLive($recentAlertsQuery);
         TenantContext::scopeAlerts($recentAlertsQuery, $user);
         $recentAlerts = $recentAlertsQuery->get(['id', 'title', 'severity', 'status', 'affected_asset', 'target_ip', 'last_seen']);
 
         $openAlertsWithMetaQuery = SecurityAlert::query()
             ->whereIn('status', $pendingStatuses)
             ->orderByDesc('last_seen');
+        $scopeLive($openAlertsWithMetaQuery);
         TenantContext::scopeAlerts($openAlertsWithMetaQuery, $user);
         $openAlertsWithMeta = $openAlertsWithMetaQuery->get(['target_ip', 'affected_asset', 'title']);
 
@@ -170,11 +203,13 @@ class MonitorController extends Controller
             'risky' => $riskyCount,
             'blocked' => $blockedCount,
             'pending' => $pendingAlertCount,
+            'pending_backlog' => $pendingBacklog,
             'resolved' => $resolvedIncidentCount,
-            'total_alerts' => $totalAlerts,
+            'total_alerts' => $totalAlertsLive,
             'online_assets' => (clone $assetStats)->where('status', 'online')->count(),
             'secure_state' => $secureState,
             'active_rules' => DetectionRule::where('is_active', true)->count(),
+            'live_window_minutes' => $liveMinutes,
         ];
 
         $cyberMap = $this->buildCyberMapData($user);
@@ -192,6 +227,7 @@ class MonitorController extends Controller
             'assetAlertHints' => $assetAlertHints,
             'assetAlertLinks' => $assetAlertLinks,
             'blockedDistinctIps' => $blockedDistinctIps,
+            'liveWindowMinutes' => $liveMinutes,
             'cyberMap' => $cyberMap,
         ]);
     }

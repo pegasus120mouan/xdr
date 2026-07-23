@@ -2084,7 +2084,7 @@
     <div class="soc-grid">
         <div class="soc-col">
             <div class="soc-panel">
-                <h3>Indicateurs clés</h3>
+                <h3>Indicateurs clés <span style="font-weight:500;color:#64748b;font-size:0.75rem;">(live {{ $liveWindowMinutes ?? 30 }} min)</span></h3>
                 <div class="soc-secure-row">
                     <div class="soc-shield{{ $monitorStats['secure_state'] === 'warn' ? ' soc-shield--warn' : '' }}" aria-hidden="true">🛡</div>
                     <div>
@@ -2103,12 +2103,18 @@
                                     <span style="color:#64748b;font-weight:500;">({{ $blockedDistinctIps }} IP distinctes)</span>
                                 @endif
                             </div>
-                            <div><strong><span class="soc-num" data-soc-count="{{ $monitorStats['pending'] }}">{{ $monitorStats['pending'] }}</span></strong> incidents en attente</div>
-                            <div><strong><span class="soc-num" data-soc-count="{{ $monitorStats['resolved'] }}">{{ $monitorStats['resolved'] }}</span></strong> incidents résolus</div>
+                            <div><strong><span class="soc-num" data-soc-count="{{ $monitorStats['pending'] }}">{{ $monitorStats['pending'] }}</span></strong> incidents live ({{ $liveWindowMinutes ?? 30 }} min)</div>
+                            <div><strong><span class="soc-num" data-soc-count="{{ $monitorStats['resolved'] }}">{{ $monitorStats['resolved'] }}</span></strong> résolus ({{ $liveWindowMinutes ?? 30 }} min)</div>
+                            @if(($monitorStats['pending_backlog'] ?? 0) > ($monitorStats['pending'] ?? 0))
+                                <div style="color:#64748b;font-size:0.8rem;">
+                                    Backlog ouvert : <strong>{{ number_format((int) $monitorStats['pending_backlog']) }}</strong>
+                                    <a href="{{ route('detection.alerts') }}" style="color:#38bdf8;">voir →</a>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
-                <h3>Menaces majeures</h3>
+                <h3>Menaces majeures <span style="font-weight:500;color:#64748b;font-size:0.75rem;">({{ $liveWindowMinutes ?? 30 }} min)</span></h3>
                 <div class="soc-threat-grid">
                     @foreach($threatCategories as $tc)
                         @php $tcnt = (int) ($alertsByCat[$tc['key']] ?? 0); @endphp
@@ -2128,7 +2134,7 @@
                 @endphp
                 <div class="soc-org">
                     <div class="soc-org-head">
-                        <h3>Incidents récents</h3>
+                        <h3>Incidents récents <span style="font-weight:500;color:#64748b;font-size:0.75rem;">({{ $liveWindowMinutes ?? 30 }} min)</span></h3>
                         <a href="{{ route('detection.alerts') }}" class="soc-org-link">Toutes les alertes →</a>
                     </div>
 
@@ -2184,7 +2190,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="4" style="text-align:center;padding:18px;color:#64748b;">Aucun incident récent</td>
+                                        <td colspan="4" style="text-align:center;padding:18px;color:#64748b;">Aucun incident dans les {{ $liveWindowMinutes ?? 30 }} dernières minutes</td>
                                     </tr>
                                 @endforelse
                             </tbody>
