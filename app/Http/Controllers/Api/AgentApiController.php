@@ -35,7 +35,22 @@ class AgentApiController extends Controller
             'ip_address' => 'nullable|string',
             'os_type' => 'nullable|string',
             'os_version' => 'nullable|string',
+            'metrics' => 'nullable|array',
+            'metrics.cpu_pct' => 'nullable|numeric|min:0|max:100',
+            'metrics.mem_pct' => 'nullable|numeric|min:0|max:100',
+            'metrics.mem_available_mb' => 'nullable|numeric|min:0',
+            'metrics.mem_total_mb' => 'nullable|numeric|min:0',
+            'metrics.disk_pct' => 'nullable|numeric|min:0|max:100',
+            'metrics.net_rx_mbps' => 'nullable|numeric|min:0',
+            'metrics.net_tx_mbps' => 'nullable|numeric|min:0',
         ]);
+
+        $metadata = $agent->metadata ?? [];
+        if (! empty($data['metrics']) && is_array($data['metrics'])) {
+            $metadata['metrics'] = array_merge($data['metrics'], [
+                'collected_at' => now()->toIso8601String(),
+            ]);
+        }
 
         // Update agent info
         $agent->update([
@@ -46,6 +61,7 @@ class AgentApiController extends Controller
             'last_heartbeat' => now(),
             'status' => 'active',
             'registered_at' => $agent->registered_at ?? now(),
+            'metadata' => $metadata,
         ]);
 
         // Create or update associated asset
@@ -149,17 +165,29 @@ class AgentApiController extends Controller
 
     private function syncAsset(Agent $agent): void
     {
+        $metricsPayload = [];
+        if (! empty($agent->metadata['metrics']) && is_array($agent->metadata['metrics'])) {
+            $metricsPayload = ['metrics' => $agent->metadata['metrics']];
+        }
+
         if ($agent->asset_id) {
-            // Update existing asset
-            Asset::where('id', $agent->asset_id)->update([
-                'hostname' => $agent->hostname,
-                'ip_address' => $agent->ip_address,
-                'status' => 'online',
-                'last_seen' => now(),
-                'os_type' => $agent->os_type,
-                'os_version' => $agent->os_version,
-                'agent_version' => $agent->agent_version,
-            ]);
+            $asset = Asset::find($agent->asset_id);
+            if ($asset) {
+                $meta = $asset->metadata ?? [];
+                if ($metricsPayload !== []) {
+                    $meta['metrics'] = $metricsPayload['metrics'];
+                }
+                $asset->update([
+                    'hostname' => $agent->hostname,
+                    'ip_address' => $agent->ip_address,
+                    'status' => 'online',
+                    'last_seen' => now(),
+                    'os_type' => $agent->os_type,
+                    'os_version' => $agent->os_version,
+                    'agent_version' => $agent->agent_version,
+                    'metadata' => $meta,
+                ]);
+            }
         } else {
             // Create new asset
             $asset = Asset::create([
@@ -173,6 +201,7 @@ class AgentApiController extends Controller
                 'last_seen' => now(),
                 'agent_version' => $agent->agent_version,
                 'agent_installed_at' => now(),
+                'metadata' => $metricsPayload,
             ]);
 
             $agent->update(['asset_id' => $asset->id]);
@@ -455,12 +484,49 @@ send_logs() {
 }
 
 send_heartbeat() {
+    local metrics
+    metrics=$(collect_metrics_json)
+    local payload
+    payload="{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I 2>/dev/null | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\",\"metrics\":$metrics}"
     curl -s -X POST "https://$XDR_SERVER/api/agent/heartbeat" \
         -H "Content-Type: application/json" -H "X-Agent-ID: $AGENT_ID" -H "X-API-Key: $API_KEY" \
-        -d "{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\"}" > /dev/null 2>&1 || \
+        -d "$payload" > /dev/null 2>&1 || \
     curl -s -X POST "http://$XDR_SERVER/api/agent/heartbeat" \
         -H "Content-Type: application/json" -H "X-Agent-ID: $AGENT_ID" -H "X-API-Key: $API_KEY" \
-        -d "{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\"}" > /dev/null 2>&1
+        -d "$payload" > /dev/null 2>&1
+}
+
+collect_metrics_json() {
+    local cpu_pct=0 mem_pct=0 mem_avail=0 mem_total=0 disk_pct=0 rx_mbps=0 tx_mbps=0
+    local u1 n1 s1 i1 u2 n2 s2 i2 total1 idle1 total2 idle2
+    read -r _ u1 n1 s1 i1 _ < /proc/stat
+    sleep 0.4
+    read -r _ u2 n2 s2 i2 _ < /proc/stat
+    total1=$((u1+n1+s1+i1)); idle1=$i1
+    total2=$((u2+n2+s2+i2)); idle2=$i2
+    if [ $((total2-total1)) -gt 0 ]; then
+        cpu_pct=$(awk -v t1="$total1" -v t2="$total2" -v i1="$idle1" -v i2="$idle2" 'BEGIN{printf "%.1f", (1-(i2-i1)/(t2-t1))*100}')
+    fi
+    read -r mem_total mem_avail <<< "$(awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{print t+0, a+0}' /proc/meminfo)"
+    if [ "$mem_total" -gt 0 ] 2>/dev/null; then
+        mem_pct=$(awk -v t="$mem_total" -v a="$mem_avail" 'BEGIN{printf "%.1f", (t-a)*100/t}')
+        mem_avail=$(awk -v a="$mem_avail" 'BEGIN{printf "%.0f", a/1024}')
+        mem_total=$(awk -v t="$mem_total" 'BEGIN{printf "%.0f", t/1024}')
+    fi
+    disk_pct=$(df -P / 2>/dev/null | awk 'NR==2{gsub(/%/,"",$5); print $5+0}')
+    local iface rx1 tx1 rx2 tx2
+    iface=$(ip route 2>/dev/null | awk '/default/{print $5; exit}')
+    if [ -n "$iface" ] && [ -r "/sys/class/net/$iface/statistics/rx_bytes" ]; then
+        rx1=$(cat "/sys/class/net/$iface/statistics/rx_bytes")
+        tx1=$(cat "/sys/class/net/$iface/statistics/tx_bytes")
+        sleep 0.5
+        rx2=$(cat "/sys/class/net/$iface/statistics/rx_bytes")
+        tx2=$(cat "/sys/class/net/$iface/statistics/tx_bytes")
+        rx_mbps=$(awk -v a="$rx1" -v b="$rx2" 'BEGIN{printf "%.2f", (b-a)*8/0.5/1000000}')
+        tx_mbps=$(awk -v a="$tx1" -v b="$tx2" 'BEGIN{printf "%.2f", (b-a)*8/0.5/1000000}')
+    fi
+    printf '{"cpu_pct":%s,"mem_pct":%s,"mem_available_mb":%s,"mem_total_mb":%s,"disk_pct":%s,"net_rx_mbps":%s,"net_tx_mbps":%s}' \
+        "${cpu_pct:-0}" "${mem_pct:-0}" "${mem_avail:-0}" "${mem_total:-0}" "${disk_pct:-0}" "${rx_mbps:-0}" "${tx_mbps:-0}"
 }
 
 main() {
@@ -685,6 +751,53 @@ function Get-DeviceIp {
     return $ip
 }
 
+function Get-HostMetrics {
+    $cpu = 0.0
+    try {
+        $cpu = [math]::Round((Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average, 1)
+    } catch {}
+
+    $memPct = 0.0
+    $memAvail = 0
+    $memTotal = 0
+    try {
+        $os = Get-CimInstance Win32_OperatingSystem
+        $memTotal = [math]::Round($os.TotalVisibleMemorySize / 1024, 0)
+        $memAvail = [math]::Round($os.FreePhysicalMemory / 1024, 0)
+        if ($os.TotalVisibleMemorySize -gt 0) {
+            $memPct = [math]::Round((($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize) * 100, 1)
+        }
+    } catch {}
+
+    $diskPct = 0.0
+    try {
+        $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+        if ($disk -and $disk.Size -gt 0) {
+            $diskPct = [math]::Round((($disk.Size - $disk.FreeSpace) / $disk.Size) * 100, 1)
+        }
+    } catch {}
+
+    $rx = 0.0
+    $tx = 0.0
+    try {
+        $counters = Get-Counter '\Network Interface(*)\Bytes Received/sec','\Network Interface(*)\Bytes Sent/sec' -ErrorAction Stop
+        $rxBytes = ($counters.CounterSamples | Where-Object { $_.Path -like '*bytes received/sec*' -and $_.InstanceName -notmatch 'isatap|Loopback|Teredo' } | Measure-Object -Property CookedValue -Sum).Sum
+        $txBytes = ($counters.CounterSamples | Where-Object { $_.Path -like '*bytes sent/sec*' -and $_.InstanceName -notmatch 'isatap|Loopback|Teredo' } | Measure-Object -Property CookedValue -Sum).Sum
+        $rx = [math]::Round(($rxBytes * 8) / 1000000, 2)
+        $tx = [math]::Round(($txBytes * 8) / 1000000, 2)
+    } catch {}
+
+    return @{
+        cpu_pct = $cpu
+        mem_pct = $memPct
+        mem_available_mb = $memAvail
+        mem_total_mb = $memTotal
+        disk_pct = $diskPct
+        net_rx_mbps = $rx
+        net_tx_mbps = $tx
+    }
+}
+
 function Send-Heartbeat {
     $body = @{
         agent_id = $Config.agent_id
@@ -692,7 +805,8 @@ function Send-Heartbeat {
         ip_address = (Get-DeviceIp)
         os_type = "windows"
         os_version = [Environment]::OSVersion.VersionString
-    } | ConvertTo-Json -Depth 4
+        metrics = (Get-HostMetrics)
+    } | ConvertTo-Json -Depth 5
 
     Invoke-RestMethod -Uri "$($Config.xdr_server.TrimEnd('/'))/api/agent/heartbeat" -Method Post -Headers @{
         "X-Agent-ID" = $Config.agent_id
@@ -914,12 +1028,49 @@ send_logs() {
 }
 
 send_heartbeat() {
+    local metrics
+    metrics=$(collect_metrics_json)
+    local payload
+    payload="{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I 2>/dev/null | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\",\"metrics\":$metrics}"
     curl -s -X POST "https://$XDR_SERVER/api/agent/heartbeat" \
         -H "Content-Type: application/json" -H "X-Agent-ID: $AGENT_ID" -H "X-API-Key: $API_KEY" \
-        -d "{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\"}" > /dev/null 2>&1 || \
+        -d "$payload" > /dev/null 2>&1 || \
     curl -s -X POST "http://$XDR_SERVER/api/agent/heartbeat" \
         -H "Content-Type: application/json" -H "X-Agent-ID: $AGENT_ID" -H "X-API-Key: $API_KEY" \
-        -d "{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\"}" > /dev/null 2>&1
+        -d "$payload" > /dev/null 2>&1
+}
+
+collect_metrics_json() {
+    local cpu_pct=0 mem_pct=0 mem_avail=0 mem_total=0 disk_pct=0 rx_mbps=0 tx_mbps=0
+    local u1 n1 s1 i1 u2 n2 s2 i2 total1 idle1 total2 idle2
+    read -r _ u1 n1 s1 i1 _ < /proc/stat
+    sleep 0.4
+    read -r _ u2 n2 s2 i2 _ < /proc/stat
+    total1=$((u1+n1+s1+i1)); idle1=$i1
+    total2=$((u2+n2+s2+i2)); idle2=$i2
+    if [ $((total2-total1)) -gt 0 ]; then
+        cpu_pct=$(awk -v t1="$total1" -v t2="$total2" -v i1="$idle1" -v i2="$idle2" 'BEGIN{printf "%.1f", (1-(i2-i1)/(t2-t1))*100}')
+    fi
+    read -r mem_total mem_avail <<< "$(awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{print t+0, a+0}' /proc/meminfo)"
+    if [ "$mem_total" -gt 0 ] 2>/dev/null; then
+        mem_pct=$(awk -v t="$mem_total" -v a="$mem_avail" 'BEGIN{printf "%.1f", (t-a)*100/t}')
+        mem_avail=$(awk -v a="$mem_avail" 'BEGIN{printf "%.0f", a/1024}')
+        mem_total=$(awk -v t="$mem_total" 'BEGIN{printf "%.0f", t/1024}')
+    fi
+    disk_pct=$(df -P / 2>/dev/null | awk 'NR==2{gsub(/%/,"",$5); print $5+0}')
+    local iface rx1 tx1 rx2 tx2
+    iface=$(ip route 2>/dev/null | awk '/default/{print $5; exit}')
+    if [ -n "$iface" ] && [ -r "/sys/class/net/$iface/statistics/rx_bytes" ]; then
+        rx1=$(cat "/sys/class/net/$iface/statistics/rx_bytes")
+        tx1=$(cat "/sys/class/net/$iface/statistics/tx_bytes")
+        sleep 0.5
+        rx2=$(cat "/sys/class/net/$iface/statistics/rx_bytes")
+        tx2=$(cat "/sys/class/net/$iface/statistics/tx_bytes")
+        rx_mbps=$(awk -v a="$rx1" -v b="$rx2" 'BEGIN{printf "%.2f", (b-a)*8/0.5/1000000}')
+        tx_mbps=$(awk -v a="$tx1" -v b="$tx2" 'BEGIN{printf "%.2f", (b-a)*8/0.5/1000000}')
+    fi
+    printf '{"cpu_pct":%s,"mem_pct":%s,"mem_available_mb":%s,"mem_total_mb":%s,"disk_pct":%s,"net_rx_mbps":%s,"net_tx_mbps":%s}' \
+        "${cpu_pct:-0}" "${mem_pct:-0}" "${mem_avail:-0}" "${mem_total:-0}" "${disk_pct:-0}" "${rx_mbps:-0}" "${tx_mbps:-0}"
 }
 
 check_for_scan() {

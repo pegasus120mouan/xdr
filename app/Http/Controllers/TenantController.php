@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Agent;
 use App\Models\Asset;
 use App\Models\TenantGroup;
 use App\Support\SecurityAudit;
@@ -230,7 +231,16 @@ class TenantController extends Controller
         TenantContext::scopeGroups($groups, auth()->user());
         $groups = $groups->get();
 
-        return view('tenants.asset-detail', compact('asset', 'groups'));
+        $metrics = $asset->hostMetrics();
+        if ($metrics === null) {
+            $linked = Agent::query()->where('asset_id', $asset->id)->first()
+                ?? Agent::query()->where('hostname', $asset->hostname)->orderByDesc('last_heartbeat')->first();
+            if ($linked && is_array($linked->metadata['metrics'] ?? null)) {
+                $metrics = $linked->metadata['metrics'];
+            }
+        }
+
+        return view('tenants.asset-detail', compact('asset', 'groups', 'metrics'));
     }
 
     public function updateAsset(Request $request, Asset $asset)

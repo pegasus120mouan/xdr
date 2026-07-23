@@ -13,6 +13,13 @@
                 <span>/</span>
             @endif
             <span>{{ $asset->hostname }}</span>
+            @if(!empty($metrics))
+                <span class="breadcrumb-metrics">
+                    <span title="CPU">CPU {{ number_format((float)($metrics['cpu_pct'] ?? 0), 1) }}%</span>
+                    <span title="Mémoire">RAM {{ number_format((float)($metrics['mem_pct'] ?? 0), 1) }}%</span>
+                    <span title="Disque">Disk {{ number_format((float)($metrics['disk_pct'] ?? 0), 1) }}%</span>
+                </span>
+            @endif
         </div>
     </div>
 
@@ -49,6 +56,65 @@
                         </span>
                         @if($asset->is_critical)
                             <span class="critical-badge">⭐ Critical Asset</span>
+                        @endif
+                    </div>
+
+                    @php
+                        $cpu = (float) ($metrics['cpu_pct'] ?? 0);
+                        $mem = (float) ($metrics['mem_pct'] ?? 0);
+                        $disk = (float) ($metrics['disk_pct'] ?? 0);
+                        $rx = (float) ($metrics['net_rx_mbps'] ?? 0);
+                        $tx = (float) ($metrics['net_tx_mbps'] ?? 0);
+                        $memAvail = $metrics['mem_available_mb'] ?? null;
+                        $level = function (float $v, bool $invert = false): string {
+                            if ($invert) {
+                                if ($v >= 50) return 'ok';
+                                if ($v >= 25) return 'warn';
+                                return 'crit';
+                            }
+                            if ($v >= 80) return 'crit';
+                            if ($v >= 50) return 'warn';
+                            return 'ok';
+                        };
+                    @endphp
+
+                    <div class="host-metrics" aria-label="Métriques machine">
+                        @if(!empty($metrics))
+                            <div class="hm-gauge hm-{{ $level($cpu) }}">
+                                <div class="hm-gauge__ring" style="--p: {{ min(100, max(0, $cpu)) }}">
+                                    <span>{{ number_format($cpu, 1) }}%</span>
+                                </div>
+                                <div class="hm-gauge__lbl">CPU</div>
+                            </div>
+                            <div class="hm-gauge hm-{{ $level($mem) }}">
+                                <div class="hm-gauge__ring" style="--p: {{ min(100, max(0, $mem)) }}">
+                                    <span>{{ number_format($mem, 1) }}%</span>
+                                </div>
+                                <div class="hm-gauge__lbl">
+                                    RAM
+                                    @if($memAvail !== null)
+                                        <small>{{ number_format((float)$memAvail, 0) }} MB free</small>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="hm-gauge hm-{{ $level($disk) }}">
+                                <div class="hm-gauge__ring" style="--p: {{ min(100, max(0, $disk)) }}">
+                                    <span>{{ number_format($disk, 1) }}%</span>
+                                </div>
+                                <div class="hm-gauge__lbl">Disk</div>
+                            </div>
+                            <div class="hm-net">
+                                <div class="hm-net__row"><span>↓ In</span><strong>{{ number_format($rx, 2) }} Mbps</strong></div>
+                                <div class="hm-net__row"><span>↑ Out</span><strong>{{ number_format($tx, 2) }} Mbps</strong></div>
+                                <div class="hm-gauge__lbl">Network</div>
+                            </div>
+                            @if(!empty($metrics['collected_at']))
+                                <div class="hm-updated">Maj. {{ \Illuminate\Support\Carbon::parse($metrics['collected_at'])->diffForHumans() }}</div>
+                            @endif
+                        @else
+                            <div class="hm-empty">
+                                Métriques indisponibles — mettez à jour / réinstallez l’agent pour remonter CPU, RAM, disque et réseau.
+                            </div>
                         @endif
                     </div>
                 </div>
@@ -227,6 +293,109 @@
 
 .breadcrumb a:hover {
     text-decoration: underline;
+}
+
+.breadcrumb-metrics {
+    display: inline-flex;
+    gap: 8px;
+    margin-left: 10px;
+    flex-wrap: wrap;
+}
+.breadcrumb-metrics span {
+    background: rgba(0, 212, 255, 0.12);
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    color: #7dd3fc;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+}
+
+.host-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px;
+    margin-top: 14px;
+}
+.hm-gauge {
+    text-align: center;
+    min-width: 72px;
+}
+.hm-gauge__ring {
+    --p: 0;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 6px;
+    background: conic-gradient(var(--hm-color, #22c55e) calc(var(--p) * 1%), rgba(148, 163, 184, 0.2) 0);
+    position: relative;
+}
+.hm-gauge__ring::before {
+    content: "";
+    position: absolute;
+    inset: 7px;
+    border-radius: 50%;
+    background: #121826;
+}
+.hm-gauge__ring span {
+    position: relative;
+    z-index: 1;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    font-variant-numeric: tabular-nums;
+}
+.hm-gauge__lbl {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.hm-gauge__lbl small {
+    display: block;
+    font-weight: 500;
+    color: #64748b;
+    margin-top: 2px;
+}
+.hm-ok { --hm-color: #22c55e; }
+.hm-warn { --hm-color: #eab308; }
+.hm-crit { --hm-color: #ef4444; }
+.hm-net {
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid #2d3748;
+    border-radius: 10px;
+    padding: 10px 12px;
+    min-width: 140px;
+}
+.hm-net__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+.hm-net__row strong {
+    color: #e2e8f0;
+    font-variant-numeric: tabular-nums;
+}
+.hm-updated {
+    align-self: center;
+    font-size: 0.72rem;
+    color: #64748b;
+}
+.hm-empty {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    background: rgba(234, 179, 8, 0.08);
+    border: 1px solid rgba(234, 179, 8, 0.25);
+    border-radius: 8px;
+    padding: 10px 12px;
+    max-width: 420px;
 }
 
 .asset-detail-grid {

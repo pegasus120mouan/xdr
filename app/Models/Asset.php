@@ -71,6 +71,18 @@ class Asset extends Model
         return $query->where('is_critical', true);
     }
 
+    /**
+     * Dernières métriques host (CPU / RAM / disque / réseau) remontées par l’agent.
+     *
+     * @return array{cpu_pct?: float|int, mem_pct?: float|int, mem_available_mb?: float|int, mem_total_mb?: float|int, disk_pct?: float|int, net_rx_mbps?: float|int, net_tx_mbps?: float|int, collected_at?: string}|null
+     */
+    public function hostMetrics(): ?array
+    {
+        $metrics = $this->metadata['metrics'] ?? null;
+
+        return is_array($metrics) ? $metrics : null;
+    }
+
     public static function getTypes(): array
     {
         return [
