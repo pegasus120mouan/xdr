@@ -170,42 +170,67 @@ class AgentApiController extends Controller
             $metricsPayload = ['metrics' => $agent->metadata['metrics']];
         }
 
+        $asset = null;
         if ($agent->asset_id) {
             $asset = Asset::find($agent->asset_id);
-            if ($asset) {
-                $meta = $asset->metadata ?? [];
-                if ($metricsPayload !== []) {
-                    $meta['metrics'] = $metricsPayload['metrics'];
-                }
-                $asset->update([
-                    'hostname' => $agent->hostname,
-                    'ip_address' => $agent->ip_address,
-                    'status' => 'online',
-                    'last_seen' => now(),
-                    'os_type' => $agent->os_type,
-                    'os_version' => $agent->os_version,
-                    'agent_version' => $agent->agent_version,
-                    'metadata' => $meta,
-                ]);
+        }
+
+        // Réutiliser un asset existant (même hostname / groupe) — évite les doublons à la réinstall
+        if (! $asset) {
+            $asset = Asset::query()
+                ->where('hostname', $agent->hostname)
+                ->when($agent->tenant_group_id, fn ($q) => $q->where('tenant_group_id', $agent->tenant_group_id))
+                ->orderByDesc('last_seen')
+                ->first();
+        }
+
+        if (! $asset && $agent->ip_address) {
+            $asset = Asset::query()
+                ->where('hostname', $agent->hostname)
+                ->where('ip_address', $agent->ip_address)
+                ->orderByDesc('last_seen')
+                ->first();
+        }
+
+        if ($asset) {
+            $meta = $asset->metadata ?? [];
+            if ($metricsPayload !== []) {
+                $meta['metrics'] = $metricsPayload['metrics'];
             }
-        } else {
-            // Create new asset
-            $asset = Asset::create([
+            $asset->update([
                 'hostname' => $agent->hostname,
                 'ip_address' => $agent->ip_address,
-                'type' => 'server',
-                'os_type' => $agent->os_type ?? 'linux',
-                'os_version' => $agent->os_version,
-                'tenant_group_id' => $agent->tenant_group_id,
                 'status' => 'online',
                 'last_seen' => now(),
+                'os_type' => $agent->os_type,
+                'os_version' => $agent->os_version,
                 'agent_version' => $agent->agent_version,
-                'agent_installed_at' => now(),
-                'metadata' => $metricsPayload,
+                'tenant_group_id' => $agent->tenant_group_id ?? $asset->tenant_group_id,
+                'metadata' => $meta,
             ]);
 
-            $agent->update(['asset_id' => $asset->id]);
+            if ((int) $agent->asset_id !== (int) $asset->id) {
+                $agent->update(['asset_id' => $asset->id]);
+            }
+
+            return;
         }
+
+        $asset = Asset::create([
+            'hostname' => $agent->hostname,
+            'ip_address' => $agent->ip_address,
+            'type' => 'server',
+            'os_type' => $agent->os_type ?? 'linux',
+            'os_version' => $agent->os_version,
+            'tenant_group_id' => $agent->tenant_group_id,
+            'status' => 'online',
+            'last_seen' => now(),
+            'agent_version' => $agent->agent_version,
+            'agent_installed_at' => now(),
+            'metadata' => $metricsPayload,
+        ]);
+
+        $agent->update(['asset_id' => $asset->id]);
     }
 
     private function analyzeLogsForThreats(Agent $agent, array $logs): void
@@ -274,29 +299,61 @@ class AgentApiController extends Controller
         }
 
         $osType = $data['os_type'] ?? 'linux';
+        $hostname = $data['hostname'];
+        $ip = $data['ip_address'] ?? $request->ip();
 
-        // Create the agent
-        $agent = Agent::create([
-            'agent_id' => Agent::generateAgentId(),
-            'name' => $data['agent_name'] ?? $data['hostname'],
-            'hostname' => $data['hostname'],
-            'ip_address' => $data['ip_address'] ?? $request->ip(),
-            'tenant_group_id' => $group->id,
-            'os_type' => $osType,
-            'os_version' => $data['os_version'] ?? null,
-            'api_key' => Agent::generateApiKey(),
-            'status' => 'active',
-            'registered_at' => now(),
-            'last_heartbeat' => now(),
-            'config' => [
-                'log_types' => $osType === 'windows' ? ['eventlog', 'security'] : ['syslog', 'auth'],
-                'send_interval' => 60,
-                'batch_size' => 100,
-            ],
-        ]);
+        // Ré-enrôlement : même hostname (+ groupe) → réutiliser l’agent (évite doublons)
+        $agent = Agent::query()
+            ->where('hostname', $hostname)
+            ->where('tenant_group_id', $group->id)
+            ->orderByDesc('last_heartbeat')
+            ->first();
 
-        // Create associated asset
+        if ($agent) {
+            $agent->update([
+                'name' => $data['agent_name'] ?? $hostname,
+                'ip_address' => $ip,
+                'os_type' => $osType,
+                'os_version' => $data['os_version'] ?? $agent->os_version,
+                'api_key' => Agent::generateApiKey(),
+                'status' => 'active',
+                'registered_at' => $agent->registered_at ?? now(),
+                'last_heartbeat' => now(),
+                'config' => $agent->config ?: [
+                    'log_types' => $osType === 'windows' ? ['eventlog', 'security'] : ['syslog', 'auth'],
+                    'send_interval' => 60,
+                    'batch_size' => 100,
+                ],
+            ]);
+        } else {
+            $agent = Agent::create([
+                'agent_id' => Agent::generateAgentId(),
+                'name' => $data['agent_name'] ?? $hostname,
+                'hostname' => $hostname,
+                'ip_address' => $ip,
+                'tenant_group_id' => $group->id,
+                'os_type' => $osType,
+                'os_version' => $data['os_version'] ?? null,
+                'api_key' => Agent::generateApiKey(),
+                'status' => 'active',
+                'registered_at' => now(),
+                'last_heartbeat' => now(),
+                'config' => [
+                    'log_types' => $osType === 'windows' ? ['eventlog', 'security'] : ['syslog', 'auth'],
+                    'send_interval' => 60,
+                    'batch_size' => 100,
+                ],
+            ]);
+        }
+
         $this->syncAsset($agent);
+
+        // Anciens enregistrements du même host → inactifs
+        Agent::query()
+            ->where('hostname', $agent->hostname)
+            ->where('tenant_group_id', $group->id)
+            ->where('id', '!=', $agent->id)
+            ->update(['status' => 'inactive']);
 
         return response()->json([
             'status' => 'ok',
