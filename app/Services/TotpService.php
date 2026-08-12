@@ -22,7 +22,7 @@ class TotpService
 
     public function otpauthUrl(string $email, string $secret): string
     {
-        $issuer = (string) config('app.name', 'KORASHIELD');
+        $issuer = (string) config('xdr.mfa_issuer', 'Kora Shield');
 
         return $this->google2fa->getQRCodeUrl($issuer, $email, $secret);
     }
