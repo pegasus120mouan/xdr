@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->text('mfa_secret')->nullable()->after('remember_token');
-            $table->json('mfa_recovery_codes')->nullable()->after('mfa_secret');
+            $table->text('mfa_recovery_codes')->nullable()->after('mfa_secret');
             $table->timestamp('mfa_confirmed_at')->nullable()->after('mfa_recovery_codes');
             $table->unsignedBigInteger('mfa_last_used_ts')->nullable()->after('mfa_confirmed_at');
         });

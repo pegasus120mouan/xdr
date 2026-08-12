@@ -157,7 +157,7 @@ class MfaController extends Controller
             'mfa_secret' => $secret,
             'mfa_recovery_codes' => $hashed,
             'mfa_confirmed_at' => now(),
-            'mfa_last_used_ts' => is_int($verified) ? $verified : null,
+            'mfa_last_used_ts' => $verified === false ? null : (int) $verified,
         ])->save();
 
         $request->session()->forget('mfa.setup_secret');

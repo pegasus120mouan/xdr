@@ -44,7 +44,12 @@ class TotpService
             return false;
         }
 
-        return $this->google2fa->verifyKeyNewer($secret, $code, $lastUsedTs);
+        $result = $this->google2fa->verifyKeyNewer($secret, $code, $lastUsedTs);
+        if ($result === false) {
+            return false;
+        }
+
+        return is_int($result) ? $result : (int) $this->google2fa->getTimestamp();
     }
 
     public function currentCode(string $secret): string
