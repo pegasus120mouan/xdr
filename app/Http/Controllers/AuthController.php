@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\BruteForceDetector;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -37,17 +38,30 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
-            // Enregistrer la tentative réussie
+        if (Auth::validate($credentials)) {
+            $user = User::where('email', $credentials['email'])->firstOrFail();
+
+            if ($user->hasMfaEnabled()) {
+                $request->session()->put('mfa.pending_user_id', $user->id);
+                $request->session()->put('mfa.remember', $request->boolean('remember'));
+                $request->session()->put('mfa.pending_expires', now()->addMinutes(10)->getTimestamp());
+                $request->session()->regenerate();
+
+                return redirect()->route('login.mfa');
+            }
+
+            Auth::login($user, $request->boolean('remember'));
+
             $this->bruteForceDetector->recordAttempt(
                 $request,
                 $credentials['email'],
                 true,
                 null,
-                Auth::id()
+                $user->id
             );
 
             $request->session()->regenerate();
+
             return redirect()->intended('/dashboard');
         }
 

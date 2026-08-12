@@ -953,6 +953,7 @@
             <div class="topbar-right">
                 <a href="{{ route('reports.index') }}" class="topbar-link">Reports</a>
                 <a href="{{ route('agents.index') }}" class="topbar-link">Agents</a>
+                <a href="{{ route('account.security') }}" class="topbar-link">Sécurité</a>
                 <div class="user-menu">
                     <div class="user-avatar">{{ substr(Auth::user()->name, 0, 1) }}</div>
                 </div>

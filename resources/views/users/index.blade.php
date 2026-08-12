@@ -48,6 +48,7 @@
                     <th>E-mail</th>
                     <th>Rôle</th>
                     <th>Espace / Tenant</th>
+                    <th>MFA</th>
                     <th>Créé</th>
                     <th>Actions</th>
                 </tr>
@@ -65,6 +66,13 @@
                                 <span class="users-tenant">{{ $u->tenantGroup?->name ?? ('#'.$u->tenant_group_id) }}</span>
                             @else
                                 <span class="users-platform">Plateforme (tous)</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if($u->hasMfaEnabled())
+                                <span class="users-role users-role--admin">TOTP</span>
+                            @else
+                                <span class="users-muted">—</span>
                             @endif
                         </td>
                         <td class="users-muted">{{ $u->created_at?->format('Y-m-d') }}</td>

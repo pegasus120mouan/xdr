@@ -5,6 +5,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DetectionController;
+use App\Http\Controllers\MfaController;
 use App\Http\Controllers\MonitorController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ResponseController;
@@ -19,9 +20,21 @@ Route::get('/', function () {
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/login/mfa', [MfaController::class, 'showChallenge'])->name('login.mfa');
+Route::post('/login/mfa', [MfaController::class, 'verifyChallenge'])
+    ->middleware('throttle:5,1')
+    ->name('login.mfa.verify');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/account/security', [MfaController::class, 'showSecurity'])->name('account.security');
+    Route::post('/account/mfa/start', [MfaController::class, 'startSetup'])->name('account.mfa.start');
+    Route::post('/account/mfa/confirm', [MfaController::class, 'confirmSetup'])
+        ->middleware('throttle:8,1')
+        ->name('account.mfa.confirm');
+    Route::post('/account/mfa/disable', [MfaController::class, 'disable'])->name('account.mfa.disable');
+    Route::post('/account/mfa/recovery', [MfaController::class, 'regenerateRecoveryCodes'])->name('account.mfa.recovery');
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/monitor/monitors', [MonitorController::class, 'monitors'])->name('monitor.monitors');

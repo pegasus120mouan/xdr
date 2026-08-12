@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 #[Fillable(['name', 'email', 'password', 'role', 'tenant_group_id'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'mfa_secret', 'mfa_recovery_codes'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -32,7 +32,16 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'mfa_secret' => 'encrypted',
+            'mfa_recovery_codes' => 'encrypted:array',
+            'mfa_confirmed_at' => 'datetime',
+            'mfa_last_used_ts' => 'integer',
         ];
+    }
+
+    public function hasMfaEnabled(): bool
+    {
+        return filled($this->mfa_secret) && $this->mfa_confirmed_at !== null;
     }
 
     public function tenantGroup(): BelongsTo

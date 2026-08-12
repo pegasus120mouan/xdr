@@ -35,21 +35,31 @@ class AgentApiController extends Controller
             'ip_address' => 'nullable|string',
             'os_type' => 'nullable|string',
             'os_version' => 'nullable|string',
+            'agent_version' => 'nullable|string|max:64',
             'metrics' => 'nullable|array',
-            'metrics.cpu_pct' => 'nullable|numeric|min:0|max:100',
-            'metrics.mem_pct' => 'nullable|numeric|min:0|max:100',
-            'metrics.mem_available_mb' => 'nullable|numeric|min:0',
-            'metrics.mem_total_mb' => 'nullable|numeric|min:0',
-            'metrics.disk_pct' => 'nullable|numeric|min:0|max:100',
-            'metrics.net_rx_mbps' => 'nullable|numeric|min:0',
-            'metrics.net_tx_mbps' => 'nullable|numeric|min:0',
         ]);
 
         $metadata = $agent->metadata ?? [];
-        if (! empty($data['metrics']) && is_array($data['metrics'])) {
-            $metadata['metrics'] = array_merge($data['metrics'], [
+        $rawMetrics = $request->input('metrics');
+        if (is_array($rawMetrics)) {
+            $clamp = static function ($value, float $min, float $max): float {
+                if (! is_numeric($value)) {
+                    return 0.0;
+                }
+
+                return max($min, min($max, (float) $value));
+            };
+
+            $metadata['metrics'] = [
+                'cpu_pct' => $clamp($rawMetrics['cpu_pct'] ?? 0, 0, 100),
+                'mem_pct' => $clamp($rawMetrics['mem_pct'] ?? 0, 0, 100),
+                'mem_available_mb' => $clamp($rawMetrics['mem_available_mb'] ?? 0, 0, 1_000_000_000),
+                'mem_total_mb' => $clamp($rawMetrics['mem_total_mb'] ?? 0, 0, 1_000_000_000),
+                'disk_pct' => $clamp($rawMetrics['disk_pct'] ?? 0, 0, 100),
+                'net_rx_mbps' => $clamp($rawMetrics['net_rx_mbps'] ?? 0, 0, 1_000_000),
+                'net_tx_mbps' => $clamp($rawMetrics['net_tx_mbps'] ?? 0, 0, 1_000_000),
                 'collected_at' => now()->toIso8601String(),
-            ]);
+            ];
         }
 
         // Update agent info
@@ -58,6 +68,7 @@ class AgentApiController extends Controller
             'ip_address' => $data['ip_address'] ?? $request->ip(),
             'os_type' => $data['os_type'] ?? 'linux',
             'os_version' => $data['os_version'] ?? null,
+            'agent_version' => $data['agent_version'] ?? $agent->agent_version,
             'last_heartbeat' => now(),
             'status' => 'active',
             'registered_at' => $agent->registered_at ?? now(),
@@ -70,6 +81,7 @@ class AgentApiController extends Controller
         return response()->json([
             'status' => 'ok',
             'message' => 'Heartbeat received',
+            'metrics_saved' => isset($metadata['metrics']),
             'server_time' => now()->toIso8601String(),
         ]);
     }
@@ -542,46 +554,60 @@ send_logs() {
 
 send_heartbeat() {
     local metrics
-    metrics=$(collect_metrics_json)
+    metrics=$(collect_metrics_json 2>/dev/null || echo '{"cpu_pct":0,"mem_pct":0,"mem_available_mb":0,"mem_total_mb":0,"disk_pct":0,"net_rx_mbps":0,"net_tx_mbps":0}')
+    case "$metrics" in
+        \{*) ;;
+        *) metrics='{"cpu_pct":0,"mem_pct":0,"mem_available_mb":0,"mem_total_mb":0,"disk_pct":0,"net_rx_mbps":0,"net_tx_mbps":0}' ;;
+    esac
     local payload
-    payload="{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I 2>/dev/null | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\",\"metrics\":$metrics}"
-    curl -s -X POST "https://$XDR_SERVER/api/agent/heartbeat" \
+    payload="{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I 2>/dev/null | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\",\"agent_version\":\"2.2-metrics\",\"metrics\":$metrics}"
+    local resp
+    resp=$(curl -ksS -w "\n%{http_code}" -X POST "https://$XDR_SERVER/api/agent/heartbeat" \
         -H "Content-Type: application/json" -H "X-Agent-ID: $AGENT_ID" -H "X-API-Key: $API_KEY" \
-        -d "$payload" > /dev/null 2>&1 || \
-    curl -s -X POST "http://$XDR_SERVER/api/agent/heartbeat" \
+        -d "$payload" 2>/dev/null || \
+    curl -sS -w "\n%{http_code}" -X POST "http://$XDR_SERVER/api/agent/heartbeat" \
         -H "Content-Type: application/json" -H "X-Agent-ID: $AGENT_ID" -H "X-API-Key: $API_KEY" \
-        -d "$payload" > /dev/null 2>&1
+        -d "$payload" 2>/dev/null || true)
+    local code
+    code=$(echo "$resp" | tail -n1)
+    log "Heartbeat metrics HTTP ${code:-?} agent_version=2.2-metrics"
 }
 
 collect_metrics_json() {
+    # Toujours renvoyer un JSON valide (clamp 0-100) — ne jamais faire échouer le heartbeat
     local cpu_pct=0 mem_pct=0 mem_avail=0 mem_total=0 disk_pct=0 rx_mbps=0 tx_mbps=0
-    local u1 n1 s1 i1 u2 n2 s2 i2 total1 idle1 total2 idle2
-    read -r _ u1 n1 s1 i1 _ < /proc/stat
-    sleep 0.4
-    read -r _ u2 n2 s2 i2 _ < /proc/stat
-    total1=$((u1+n1+s1+i1)); idle1=$i1
-    total2=$((u2+n2+s2+i2)); idle2=$i2
-    if [ $((total2-total1)) -gt 0 ]; then
-        cpu_pct=$(awk -v t1="$total1" -v t2="$total2" -v i1="$idle1" -v i2="$idle2" 'BEGIN{printf "%.1f", (1-(i2-i1)/(t2-t1))*100}')
-    fi
-    read -r mem_total mem_avail <<< "$(awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{print t+0, a+0}' /proc/meminfo)"
-    if [ "$mem_total" -gt 0 ] 2>/dev/null; then
-        mem_pct=$(awk -v t="$mem_total" -v a="$mem_avail" 'BEGIN{printf "%.1f", (t-a)*100/t}')
-        mem_avail=$(awk -v a="$mem_avail" 'BEGIN{printf "%.0f", a/1024}')
-        mem_total=$(awk -v t="$mem_total" 'BEGIN{printf "%.0f", t/1024}')
-    fi
-    disk_pct=$(df -P / 2>/dev/null | awk 'NR==2{gsub(/%/,"",$5); print $5+0}')
-    local iface rx1 tx1 rx2 tx2
-    iface=$(ip route 2>/dev/null | awk '/default/{print $5; exit}')
-    if [ -n "$iface" ] && [ -r "/sys/class/net/$iface/statistics/rx_bytes" ]; then
-        rx1=$(cat "/sys/class/net/$iface/statistics/rx_bytes")
-        tx1=$(cat "/sys/class/net/$iface/statistics/tx_bytes")
-        sleep 0.5
-        rx2=$(cat "/sys/class/net/$iface/statistics/rx_bytes")
-        tx2=$(cat "/sys/class/net/$iface/statistics/tx_bytes")
-        rx_mbps=$(awk -v a="$rx1" -v b="$rx2" 'BEGIN{printf "%.2f", (b-a)*8/0.5/1000000}')
-        tx_mbps=$(awk -v a="$tx1" -v b="$tx2" 'BEGIN{printf "%.2f", (b-a)*8/0.5/1000000}')
-    fi
+    {
+        local u1=0 n1=0 s1=0 i1=0 u2=0 n2=0 s2=0 i2=0
+        local line1 line2
+        line1=$(grep '^cpu ' /proc/stat 2>/dev/null || true)
+        sleep 0.3
+        line2=$(grep '^cpu ' /proc/stat 2>/dev/null || true)
+        set -- $line1; u1=${2:-0}; n1=${3:-0}; s1=${4:-0}; i1=${5:-0}
+        set -- $line2; u2=${2:-0}; n2=${3:-0}; s2=${4:-0}; i2=${5:-0}
+        cpu_pct=$(awk -v u1="$u1" -v n1="$n1" -v s1="$s1" -v i1="$i1" -v u2="$u2" -v n2="$n2" -v s2="$s2" -v i2="$i2" 'BEGIN{
+            t1=u1+n1+s1+i1; t2=u2+n2+s2+i2; d=t2-t1; id=i2-i1;
+            if (d>0){v=(1-id/d)*100; if(v<0)v=0; if(v>100)v=100; printf "%.1f", v} else print "0.0"
+        }')
+        mem_total=$(awk '/MemTotal:/{print $2+0; exit}' /proc/meminfo 2>/dev/null || echo 0)
+        mem_avail=$(awk '/MemAvailable:/{print $2+0; exit}' /proc/meminfo 2>/dev/null || echo 0)
+        if [ "${mem_total:-0}" -gt 0 ] 2>/dev/null; then
+            mem_pct=$(awk -v t="$mem_total" -v a="$mem_avail" 'BEGIN{v=(t-a)*100/t; if(v<0)v=0; if(v>100)v=100; printf "%.1f", v}')
+            mem_avail=$(awk -v a="$mem_avail" 'BEGIN{printf "%.0f", a/1024}')
+            mem_total=$(awk -v t="$mem_total" 'BEGIN{printf "%.0f", t/1024}')
+        fi
+        disk_pct=$(df -P / 2>/dev/null | awk 'NR==2{gsub(/%/,"",$5); v=$5+0; if(v<0)v=0; if(v>100)v=100; print v}')
+        local iface rx1=0 tx1=0 rx2=0 tx2=0
+        iface=$(ip route 2>/dev/null | awk '/default/{print $5; exit}')
+        if [ -n "$iface" ] && [ -r "/sys/class/net/$iface/statistics/rx_bytes" ]; then
+            rx1=$(cat "/sys/class/net/$iface/statistics/rx_bytes" 2>/dev/null || echo 0)
+            tx1=$(cat "/sys/class/net/$iface/statistics/tx_bytes" 2>/dev/null || echo 0)
+            sleep 0.4
+            rx2=$(cat "/sys/class/net/$iface/statistics/rx_bytes" 2>/dev/null || echo 0)
+            tx2=$(cat "/sys/class/net/$iface/statistics/tx_bytes" 2>/dev/null || echo 0)
+            rx_mbps=$(awk -v a="$rx1" -v b="$rx2" 'BEGIN{v=(b-a)*8/0.4/1000000; if(v<0)v=0; printf "%.2f", v}')
+            tx_mbps=$(awk -v a="$tx1" -v b="$tx2" 'BEGIN{v=(b-a)*8/0.4/1000000; if(v<0)v=0; printf "%.2f", v}')
+        fi
+    } 2>/dev/null || true
     printf '{"cpu_pct":%s,"mem_pct":%s,"mem_available_mb":%s,"mem_total_mb":%s,"disk_pct":%s,"net_rx_mbps":%s,"net_tx_mbps":%s}' \
         "${cpu_pct:-0}" "${mem_pct:-0}" "${mem_avail:-0}" "${mem_total:-0}" "${disk_pct:-0}" "${rx_mbps:-0}" "${tx_mbps:-0}"
 }
@@ -589,6 +615,7 @@ collect_metrics_json() {
 main() {
     log "Agent started"
     local heartbeat_counter=0
+    send_heartbeat
     
     while true; do
         for log_type in $LOG_TYPES; do
@@ -615,7 +642,7 @@ main() {
         for batch in $QUEUE_DIR/batch_*.json; do [ -f "$batch" ] && send_logs "$batch"; done
         
         heartbeat_counter=$((heartbeat_counter + 1))
-        [ $heartbeat_counter -ge 5 ] && { send_heartbeat; heartbeat_counter=0; }
+        [ $heartbeat_counter -ge 1 ] && { send_heartbeat; heartbeat_counter=0; }
         
         sleep $SEND_INTERVAL
     done
@@ -862,6 +889,7 @@ function Send-Heartbeat {
         ip_address = (Get-DeviceIp)
         os_type = "windows"
         os_version = [Environment]::OSVersion.VersionString
+        agent_version = "2.2-metrics"
         metrics = (Get-HostMetrics)
     } | ConvertTo-Json -Depth 5
 
@@ -1086,46 +1114,60 @@ send_logs() {
 
 send_heartbeat() {
     local metrics
-    metrics=$(collect_metrics_json)
+    metrics=$(collect_metrics_json 2>/dev/null || echo '{"cpu_pct":0,"mem_pct":0,"mem_available_mb":0,"mem_total_mb":0,"disk_pct":0,"net_rx_mbps":0,"net_tx_mbps":0}')
+    case "$metrics" in
+        \{*) ;;
+        *) metrics='{"cpu_pct":0,"mem_pct":0,"mem_available_mb":0,"mem_total_mb":0,"disk_pct":0,"net_rx_mbps":0,"net_tx_mbps":0}' ;;
+    esac
     local payload
-    payload="{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I 2>/dev/null | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\",\"metrics\":$metrics}"
-    curl -s -X POST "https://$XDR_SERVER/api/agent/heartbeat" \
+    payload="{\"agent_id\":\"$AGENT_ID\",\"hostname\":\"$(hostname)\",\"ip_address\":\"$(hostname -I 2>/dev/null | awk '{print $1}')\",\"os_type\":\"linux\",\"os_version\":\"$(uname -r)\",\"agent_version\":\"2.2-metrics\",\"metrics\":$metrics}"
+    local resp
+    resp=$(curl -ksS -w "\n%{http_code}" -X POST "https://$XDR_SERVER/api/agent/heartbeat" \
         -H "Content-Type: application/json" -H "X-Agent-ID: $AGENT_ID" -H "X-API-Key: $API_KEY" \
-        -d "$payload" > /dev/null 2>&1 || \
-    curl -s -X POST "http://$XDR_SERVER/api/agent/heartbeat" \
+        -d "$payload" 2>/dev/null || \
+    curl -sS -w "\n%{http_code}" -X POST "http://$XDR_SERVER/api/agent/heartbeat" \
         -H "Content-Type: application/json" -H "X-Agent-ID: $AGENT_ID" -H "X-API-Key: $API_KEY" \
-        -d "$payload" > /dev/null 2>&1
+        -d "$payload" 2>/dev/null || true)
+    local code
+    code=$(echo "$resp" | tail -n1)
+    log "Heartbeat metrics HTTP ${code:-?} agent_version=2.2-metrics"
 }
 
 collect_metrics_json() {
+    # Toujours renvoyer un JSON valide (clamp 0-100) — ne jamais faire échouer le heartbeat
     local cpu_pct=0 mem_pct=0 mem_avail=0 mem_total=0 disk_pct=0 rx_mbps=0 tx_mbps=0
-    local u1 n1 s1 i1 u2 n2 s2 i2 total1 idle1 total2 idle2
-    read -r _ u1 n1 s1 i1 _ < /proc/stat
-    sleep 0.4
-    read -r _ u2 n2 s2 i2 _ < /proc/stat
-    total1=$((u1+n1+s1+i1)); idle1=$i1
-    total2=$((u2+n2+s2+i2)); idle2=$i2
-    if [ $((total2-total1)) -gt 0 ]; then
-        cpu_pct=$(awk -v t1="$total1" -v t2="$total2" -v i1="$idle1" -v i2="$idle2" 'BEGIN{printf "%.1f", (1-(i2-i1)/(t2-t1))*100}')
-    fi
-    read -r mem_total mem_avail <<< "$(awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{print t+0, a+0}' /proc/meminfo)"
-    if [ "$mem_total" -gt 0 ] 2>/dev/null; then
-        mem_pct=$(awk -v t="$mem_total" -v a="$mem_avail" 'BEGIN{printf "%.1f", (t-a)*100/t}')
-        mem_avail=$(awk -v a="$mem_avail" 'BEGIN{printf "%.0f", a/1024}')
-        mem_total=$(awk -v t="$mem_total" 'BEGIN{printf "%.0f", t/1024}')
-    fi
-    disk_pct=$(df -P / 2>/dev/null | awk 'NR==2{gsub(/%/,"",$5); print $5+0}')
-    local iface rx1 tx1 rx2 tx2
-    iface=$(ip route 2>/dev/null | awk '/default/{print $5; exit}')
-    if [ -n "$iface" ] && [ -r "/sys/class/net/$iface/statistics/rx_bytes" ]; then
-        rx1=$(cat "/sys/class/net/$iface/statistics/rx_bytes")
-        tx1=$(cat "/sys/class/net/$iface/statistics/tx_bytes")
-        sleep 0.5
-        rx2=$(cat "/sys/class/net/$iface/statistics/rx_bytes")
-        tx2=$(cat "/sys/class/net/$iface/statistics/tx_bytes")
-        rx_mbps=$(awk -v a="$rx1" -v b="$rx2" 'BEGIN{printf "%.2f", (b-a)*8/0.5/1000000}')
-        tx_mbps=$(awk -v a="$tx1" -v b="$tx2" 'BEGIN{printf "%.2f", (b-a)*8/0.5/1000000}')
-    fi
+    {
+        local u1=0 n1=0 s1=0 i1=0 u2=0 n2=0 s2=0 i2=0
+        local line1 line2
+        line1=$(grep '^cpu ' /proc/stat 2>/dev/null || true)
+        sleep 0.3
+        line2=$(grep '^cpu ' /proc/stat 2>/dev/null || true)
+        set -- $line1; u1=${2:-0}; n1=${3:-0}; s1=${4:-0}; i1=${5:-0}
+        set -- $line2; u2=${2:-0}; n2=${3:-0}; s2=${4:-0}; i2=${5:-0}
+        cpu_pct=$(awk -v u1="$u1" -v n1="$n1" -v s1="$s1" -v i1="$i1" -v u2="$u2" -v n2="$n2" -v s2="$s2" -v i2="$i2" 'BEGIN{
+            t1=u1+n1+s1+i1; t2=u2+n2+s2+i2; d=t2-t1; id=i2-i1;
+            if (d>0){v=(1-id/d)*100; if(v<0)v=0; if(v>100)v=100; printf "%.1f", v} else print "0.0"
+        }')
+        mem_total=$(awk '/MemTotal:/{print $2+0; exit}' /proc/meminfo 2>/dev/null || echo 0)
+        mem_avail=$(awk '/MemAvailable:/{print $2+0; exit}' /proc/meminfo 2>/dev/null || echo 0)
+        if [ "${mem_total:-0}" -gt 0 ] 2>/dev/null; then
+            mem_pct=$(awk -v t="$mem_total" -v a="$mem_avail" 'BEGIN{v=(t-a)*100/t; if(v<0)v=0; if(v>100)v=100; printf "%.1f", v}')
+            mem_avail=$(awk -v a="$mem_avail" 'BEGIN{printf "%.0f", a/1024}')
+            mem_total=$(awk -v t="$mem_total" 'BEGIN{printf "%.0f", t/1024}')
+        fi
+        disk_pct=$(df -P / 2>/dev/null | awk 'NR==2{gsub(/%/,"",$5); v=$5+0; if(v<0)v=0; if(v>100)v=100; print v}')
+        local iface rx1=0 tx1=0 rx2=0 tx2=0
+        iface=$(ip route 2>/dev/null | awk '/default/{print $5; exit}')
+        if [ -n "$iface" ] && [ -r "/sys/class/net/$iface/statistics/rx_bytes" ]; then
+            rx1=$(cat "/sys/class/net/$iface/statistics/rx_bytes" 2>/dev/null || echo 0)
+            tx1=$(cat "/sys/class/net/$iface/statistics/tx_bytes" 2>/dev/null || echo 0)
+            sleep 0.4
+            rx2=$(cat "/sys/class/net/$iface/statistics/rx_bytes" 2>/dev/null || echo 0)
+            tx2=$(cat "/sys/class/net/$iface/statistics/tx_bytes" 2>/dev/null || echo 0)
+            rx_mbps=$(awk -v a="$rx1" -v b="$rx2" 'BEGIN{v=(b-a)*8/0.4/1000000; if(v<0)v=0; printf "%.2f", v}')
+            tx_mbps=$(awk -v a="$tx1" -v b="$tx2" 'BEGIN{v=(b-a)*8/0.4/1000000; if(v<0)v=0; printf "%.2f", v}')
+        fi
+    } 2>/dev/null || true
     printf '{"cpu_pct":%s,"mem_pct":%s,"mem_available_mb":%s,"mem_total_mb":%s,"disk_pct":%s,"net_rx_mbps":%s,"net_tx_mbps":%s}' \
         "${cpu_pct:-0}" "${mem_pct:-0}" "${mem_avail:-0}" "${mem_total:-0}" "${disk_pct:-0}" "${rx_mbps:-0}" "${tx_mbps:-0}"
 }
@@ -1157,6 +1199,7 @@ main() {
     log "Agent started (v2.1 - with app logs & vuln scan)"
     local heartbeat_counter=0
     local scan_check_counter=0
+    send_heartbeat
     
     while true; do
         for log_type in $LOG_TYPES; do
@@ -1206,7 +1249,7 @@ main() {
         for batch in $QUEUE_DIR/batch_*.json; do [ -f "$batch" ] && send_logs "$batch"; done
         
         heartbeat_counter=$((heartbeat_counter + 1))
-        [ $heartbeat_counter -ge 5 ] && { send_heartbeat; heartbeat_counter=0; }
+        [ $heartbeat_counter -ge 1 ] && { send_heartbeat; heartbeat_counter=0; }
         
         # Check for vulnerability scan every 5 cycles (~5 minutes)
         scan_check_counter=$((scan_check_counter + 1))
@@ -1234,11 +1277,12 @@ if systemctl is-active --quiet athena-xdr-agent; then
     echo -e "${NC}"
     echo ""
     echo -e "Agent ID:     ${BLUE}$AGENT_ID${NC}"
-    echo -e "Version:      ${BLUE}2.0 (with app logs)${NC}"
+    echo -e "Version:      ${BLUE}2.2-metrics (CPU/RAM/Disk/Net + app logs)${NC}"
     echo -e "Status:       ${GREEN}Running${NC}"
     echo -e "Backup:       ${YELLOW}$BACKUP_DIR${NC}"
     echo ""
-    echo -e "${GREEN}New log sources:${NC}"
+    echo -e "${GREEN}Included:${NC}"
+    echo "  - Host metrics: CPU, RAM, Disk, Network (heartbeat)"
     echo "  - Apache/Nginx access & error logs"
     echo "  - MySQL/MariaDB logs"
     echo "  - PostgreSQL logs"

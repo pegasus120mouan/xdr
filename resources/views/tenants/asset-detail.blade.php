@@ -113,7 +113,16 @@
                             @endif
                         @else
                             <div class="hm-empty">
-                                Métriques indisponibles — mettez à jour / réinstallez l’agent pour remonter CPU, RAM, disque et réseau.
+                                <div>Métriques indisponibles — l’agent en ligne n’envoie pas encore CPU/RAM/disque/réseau.</div>
+                                @if(($asset->os_type ?? '') === 'linux')
+                                    <div class="hm-update-cmd">
+                                        <code>curl -ksS https://{{ request()->getHost() }}/api/agent/update.sh -o /tmp/xdr-update.sh &amp;&amp; sudo bash /tmp/xdr-update.sh</code>
+                                    </div>
+                                @elseif(($asset->os_type ?? '') === 'windows')
+                                    <div class="hm-update-cmd">
+                                        <code>iwr -UseBasicParsing https://{{ request()->getHost() }}/api/agent/install.ps1 -OutFile xdr-agent-install.ps1; .\xdr-agent-install.ps1 -Server '{{ request()->getHost() }}' -Group '{{ $asset->tenantGroup->name ?? 'default' }}' -EnrollmentToken $env:XDR_ENROLLMENT_TOKEN</code>
+                                    </div>
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -395,7 +404,21 @@
     border: 1px solid rgba(234, 179, 8, 0.25);
     border-radius: 8px;
     padding: 10px 12px;
-    max-width: 420px;
+    max-width: 640px;
+}
+.hm-update-cmd {
+    margin-top: 8px;
+}
+.hm-update-cmd code {
+    display: block;
+    font-size: 0.72rem;
+    color: #7dd3fc;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid #2d3748;
+    border-radius: 6px;
+    padding: 8px 10px;
+    white-space: pre-wrap;
+    word-break: break-all;
 }
 
 .asset-detail-grid {

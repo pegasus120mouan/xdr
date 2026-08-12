@@ -234,7 +234,10 @@ class TenantController extends Controller
         $metrics = $asset->hostMetrics();
         if ($metrics === null) {
             $linked = Agent::query()->where('asset_id', $asset->id)->first()
-                ?? Agent::query()->where('hostname', $asset->hostname)->orderByDesc('last_heartbeat')->first();
+                ?? Agent::query()->where('hostname', $asset->hostname)->orderByDesc('last_heartbeat')->first()
+                ?? ($asset->ip_address
+                    ? Agent::query()->where('ip_address', $asset->ip_address)->orderByDesc('last_heartbeat')->first()
+                    : null);
             if ($linked && is_array($linked->metadata['metrics'] ?? null)) {
                 $metrics = $linked->metadata['metrics'];
             }
