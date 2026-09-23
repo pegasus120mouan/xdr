@@ -1,477 +1,405 @@
 @extends('layouts.monitor-full')
 
-@section('title', 'Attack Map — Wara XDR')
+@section('title', 'Live Threat Map — KORASHIELD')
 
 @push('styles')
 <style>
-    .amap {
-        --amap-bg0: #030712;
-        --amap-bg1: #0a1628;
-        --amap-panel: rgba(12, 28, 52, 0.82);
-        --amap-border: rgba(56, 189, 248, 0.22);
-        --amap-orange: #f59e0b;
-        --amap-orange2: #fbbf24;
-        --amap-cyan: #38bdf8;
-        --amap-red: #f87171;
-        min-height: 100vh;
-        padding: 16px 20px 24px;
-        box-sizing: border-box;
-        background: linear-gradient(165deg, var(--amap-bg0) 0%, var(--amap-bg1) 45%, #050a14 100%);
-        color: #e2e8f0;
+    :root {
+        --rtm-bg: #020617;
+        --rtm-panel: rgba(2, 12, 28, 0.72);
+        --rtm-border: rgba(56, 189, 248, 0.18);
+        --rtm-cyan: #22d3ee;
+        --rtm-blue: #38bdf8;
+        --rtm-orange: #fb923c;
+        --rtm-red: #f43f5e;
+        --rtm-magenta: #e879f9;
+        --rtm-green: #34d399;
+        --rtm-text: #e2e8f0;
+        --rtm-muted: #64748b;
+    }
+
+    html, body.monitor-full { height: 100%; overflow: hidden; }
+
+    .rtm {
+        position: relative;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        background:
+            radial-gradient(ellipse 70% 55% at 50% 45%, rgba(14, 60, 120, 0.35) 0%, transparent 58%),
+            radial-gradient(ellipse 40% 30% at 20% 80%, rgba(225, 29, 72, 0.08) 0%, transparent 50%),
+            linear-gradient(180deg, #020617 0%, #06101f 50%, #020617 100%);
+        color: var(--rtm-text);
         font-family: 'Inter', system-ui, sans-serif;
-        font-size: 13px;
     }
 
-    .amap-header {
-        display: grid;
-        grid-template-columns: 1fr auto 1fr;
-        align-items: start;
-        gap: 12px;
-        margin-bottom: 14px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid var(--amap-border);
+    .rtm-stars {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+            radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.35), transparent),
+            radial-gradient(1px 1px at 80% 30%, rgba(255,255,255,0.25), transparent),
+            radial-gradient(1px 1px at 40% 70%, rgba(255,255,255,0.2), transparent),
+            radial-gradient(1px 1px at 65% 15%, rgba(255,255,255,0.3), transparent);
+        opacity: 0.5;
     }
 
-    .amap-header__left { font-size: 0.78rem; color: #94a3b8; line-height: 1.5; }
-    .amap-header__left strong { color: #f1f5f9; font-weight: 600; }
-    .amap-header__title {
+    .rtm-stage {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+    }
+
+    .rtm-svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+
+    .rtm-world {
+        opacity: 0.55;
+        filter: brightness(0.85) contrast(1.15) saturate(0.7);
+    }
+
+    .rtm-arc {
+        fill: none;
+        stroke-width: 1.4;
+        stroke-linecap: round;
+        opacity: 0.85;
+    }
+    .rtm-flow--critical .rtm-arc, .rtm-flow--high .rtm-arc { stroke: var(--rtm-red); }
+    .rtm-flow--medium .rtm-arc { stroke: var(--rtm-orange); }
+    .rtm-flow--low .rtm-arc { stroke: var(--rtm-cyan); }
+
+    .rtm-pulse {
+        fill: #fff;
+        filter: drop-shadow(0 0 4px currentColor);
+    }
+    .rtm-flow--critical .rtm-pulse, .rtm-flow--high .rtm-pulse { fill: #fda4af; }
+    .rtm-flow--medium .rtm-pulse { fill: #fdba74; }
+    .rtm-flow--low .rtm-pulse { fill: #67e8f9; }
+
+    .rtm-origin-core { fill: var(--rtm-orange); stroke: #fff7ed; stroke-width: 1; }
+    .rtm-origin-ring {
+        fill: none;
+        stroke: var(--rtm-orange);
+        stroke-width: 0.8;
+        opacity: 0.7;
+        animation: rtm-ring 2.4s ease-out infinite;
+    }
+    .rtm-home {
+        fill: var(--rtm-cyan);
+        stroke: #e0f2fe;
+        stroke-width: 1.6;
+        filter: drop-shadow(0 0 12px rgba(34, 211, 238, 0.8));
+    }
+    .rtm-home-ring {
+        fill: none;
+        stroke: var(--rtm-cyan);
+        stroke-width: 1;
+        animation: rtm-ring 2.8s ease-out infinite;
+    }
+    .rtm-label {
+        fill: #cbd5e1;
+        font-size: 11px;
+        font-weight: 600;
+        pointer-events: none;
+    }
+    .rtm-label--home { fill: #67e8f9; font-size: 12px; }
+
+    @keyframes rtm-ring {
+        0% { r: 8; opacity: 0.7; }
+        100% { r: 26; opacity: 0; }
+    }
+
+    .rtm-flow.is-dimmed { opacity: 0.12; }
+    .rtm-flow.is-highlighted .rtm-arc { stroke-width: 2.4; opacity: 1; }
+    .rtm-origin.is-dimmed { opacity: 0.15; }
+
+    .rtm-hud {
+        position: absolute;
+        z-index: 5;
+        pointer-events: none;
+    }
+    .rtm-hud > * { pointer-events: auto; }
+
+    .rtm-top {
+        top: 0; left: 0; right: 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: 18px 22px;
+        background: linear-gradient(180deg, rgba(2,6,23,0.85) 0%, transparent 100%);
+    }
+
+    .rtm-brand {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .rtm-brand__title {
         margin: 0;
-        font-size: 1.35rem;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.15rem;
         font-weight: 700;
-        letter-spacing: 0.04em;
-        text-align: center;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
         color: #f8fafc;
+        text-shadow: 0 0 24px rgba(34, 211, 238, 0.35);
     }
-    .amap-header__right { text-align: right; }
+    .rtm-brand__sub {
+        font-size: 0.72rem;
+        color: var(--rtm-muted);
+        letter-spacing: 0.06em;
+    }
+    .rtm-live {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 6px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--rtm-green);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+    .rtm-live i {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--rtm-green);
+        box-shadow: 0 0 8px var(--rtm-green);
+        animation: rtm-blink 1.2s infinite;
+    }
+    @keyframes rtm-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.35; }
+    }
 
-    .amap-icon-btn {
+    .rtm-kpis {
+        display: flex;
+        gap: 10px;
+    }
+    .rtm-kpi {
+        min-width: 88px;
+        padding: 10px 14px;
+        background: var(--rtm-panel);
+        border: 1px solid var(--rtm-border);
+        border-radius: 10px;
+        backdrop-filter: blur(10px);
+        text-align: center;
+    }
+    .rtm-kpi__val {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--rtm-cyan);
+        font-variant-numeric: tabular-nums;
+    }
+    .rtm-kpi--hot .rtm-kpi__val { color: var(--rtm-red); }
+    .rtm-kpi__lbl {
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--rtm-muted);
+        margin-top: 2px;
+    }
+
+    .rtm-actions { display: flex; gap: 8px; align-items: center; }
+    .rtm-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 36px;
         height: 36px;
-        border: 1px solid var(--amap-border);
-        border-radius: 6px;
-        background: rgba(15, 40, 70, 0.5);
-        color: var(--amap-cyan);
+        padding: 0 12px;
+        border-radius: 8px;
+        border: 1px solid var(--rtm-border);
+        background: var(--rtm-panel);
+        color: var(--rtm-blue);
         text-decoration: none;
-        font-size: 1rem;
-        transition: background 0.2s, border-color 0.2s;
-    }
-    .amap-icon-btn:hover { background: rgba(56, 189, 248, 0.12); border-color: var(--amap-cyan); }
-
-    .amap-grid {
-        display: grid;
-        grid-template-columns: 240px minmax(420px, 1fr) 260px;
-        grid-template-rows: auto 1fr;
-        gap: 14px;
-        align-items: stretch;
-    }
-
-    @media (max-width: 1200px) {
-        .amap-grid {
-            grid-template-columns: 1fr;
-            grid-template-rows: auto;
-        }
-    }
-
-    .amap-panel {
-        background: var(--amap-panel);
-        border: 1px solid var(--amap-border);
-        border-radius: 10px;
-        padding: 14px 16px;
+        font-size: 0.75rem;
+        font-weight: 600;
         backdrop-filter: blur(8px);
     }
+    .rtm-btn:hover { border-color: var(--rtm-cyan); color: #fff; }
 
-    .amap-panel h3 {
-        margin: 0 0 12px;
-        font-size: 0.72rem;
-        font-weight: 600;
+    .rtm-side {
+        top: 110px;
+        width: min(260px, 28vw);
+        max-height: calc(100vh - 220px);
+        overflow: auto;
+        padding: 16px;
+        background: var(--rtm-panel);
+        border: 1px solid var(--rtm-border);
+        border-radius: 12px;
+        backdrop-filter: blur(14px);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    }
+    .rtm-side--left { left: 22px; }
+    .rtm-side--right { right: 22px; }
+
+    .rtm-side h3 {
+        margin: 0 0 14px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #64748b;
+        color: #94a3b8;
     }
 
-    .amap-kpis {
+    .rtm-rank { list-style: none; margin: 0; padding: 0; }
+    .rtm-rank li {
+        display: grid;
+        grid-template-columns: 22px 1fr auto;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 12px;
+        cursor: pointer;
+    }
+    .rtm-rank__n {
+        font-size: 0.7rem;
+        color: var(--rtm-muted);
+        font-variant-numeric: tabular-nums;
+    }
+    .rtm-rank__name {
+        font-size: 0.82rem;
+        color: #e2e8f0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .rtm-rank__pct {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--rtm-cyan);
+        font-variant-numeric: tabular-nums;
+    }
+    .rtm-rank__bar {
+        grid-column: 2 / -1;
+        height: 3px;
+        background: rgba(148,163,184,0.15);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: -6px;
+    }
+    .rtm-rank__bar i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, var(--rtm-cyan), var(--rtm-magenta));
+        border-radius: 2px;
+    }
+    .rtm-side--right .rtm-rank__bar i {
+        background: linear-gradient(90deg, var(--rtm-orange), var(--rtm-red));
+    }
+    .rtm-side--right .rtm-rank__pct { color: var(--rtm-orange); }
+
+    .rtm-empty {
+        font-size: 0.78rem;
+        color: var(--rtm-muted);
+        line-height: 1.4;
+    }
+
+    .rtm-bottom {
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        width: min(920px, calc(100vw - 44px));
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 10px;
+        align-items: center;
     }
 
-    .amap-kpi {
+    .rtm-filters {
         display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .amap-kpi__icon {
-        width: 44px;
-        height: 44px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
+        flex-wrap: wrap;
         justify-content: center;
-        font-size: 1.35rem;
-        background: rgba(56, 189, 248, 0.12);
-        border: 1px solid rgba(56, 189, 248, 0.28);
-    }
-
-    .amap-kpi--attacks .amap-kpi__icon {
-        background: rgba(248, 113, 113, 0.12);
-        border-color: rgba(248, 113, 113, 0.35);
-    }
-
-    .amap-kpi__val {
-        font-size: 1.65rem;
-        font-weight: 800;
-        font-variant-numeric: tabular-nums;
-        line-height: 1.1;
-        color: #fff;
-    }
-
-    .amap-kpi__lbl { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; }
-
-    .amap-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
-    .amap-bar-row { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; }
-    .amap-bar-row span:first-child { width: 52px; color: #94a3b8; flex-shrink: 0; }
-    .amap-bar-track {
-        flex: 1;
-        height: 8px;
-        border-radius: 4px;
-        background: rgba(30, 58, 95, 0.6);
-        overflow: hidden;
-    }
-    .amap-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
-    .amap-bar-fill--high { background: linear-gradient(90deg, #dc2626, #f87171); }
-    .amap-bar-fill--med { background: linear-gradient(90deg, #ea580c, #fb923c); }
-    .amap-bar-fill--low { background: linear-gradient(90deg, #15803d, #4ade80); }
-    .amap-bar-row strong { min-width: 22px; text-align: right; font-variant-numeric: tabular-nums; color: #cbd5e1; }
-
-    .amap-map-wrap {
-        grid-row: span 2;
-        position: relative;
-        min-height: 720px;
-    }
-
-    @media (max-width: 1200px) {
-        .amap-map-wrap { grid-row: auto; min-height: 550px; }
-    }
-
-    .amap-map-inner {
-        position: absolute;
-        inset: 0;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid var(--amap-border);
-        background:
-            radial-gradient(ellipse 80% 60% at 50% 45%, rgba(30, 64, 120, 0.35) 0%, transparent 55%),
-            linear-gradient(180deg, #050d1c 0%, #0a1628 100%);
-        isolation: isolate;
-    }
-
-    .amap-map-inner::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        opacity: 0.14;
-        background-image:
-            linear-gradient(rgba(56, 189, 248, 0.08) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(56, 189, 248, 0.08) 1px, transparent 1px);
-        background-size: 48px 48px;
-        pointer-events: none;
-    }
-
-    .amap-svg {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-    }
-
-    .amap-svg .amap-world-bg {
-        opacity: 0.38;
-        filter: brightness(0.55) contrast(1.15) saturate(0.35);
-    }
-
-    .amap-map-credit {
-        position: absolute;
-        right: 14px;
-        bottom: 10px;
-        margin: 0;
-        font-size: 0.62rem;
-        color: #475569;
-        z-index: 4;
-        pointer-events: auto;
-    }
-
-    .amap-map-credit a {
-        color: #64748b;
-        text-decoration: none;
-    }
-
-    .amap-map-credit a:hover {
-        color: #94a3b8;
-        text-decoration: underline;
-    }
-
-    .amap-arc.amap-arc--visible {
-        fill: none;
-        stroke-linecap: round;
-        stroke-width: 1.5;
-        opacity: 0.88;
-        stroke-dasharray: 8 6;
-        animation: amap-dash 2.8s linear infinite;
-        pointer-events: none;
-        transition: stroke-width 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
-    }
-
-    .amap-arc-hit {
-        fill: none;
-        stroke: transparent;
-        stroke-width: 16;
-        stroke-linecap: round;
-        pointer-events: stroke;
-        cursor: pointer;
-    }
-
-    .amap-flow--critical .amap-arc--visible,
-    .amap-flow--high .amap-arc--visible { stroke: #fb923c; filter: drop-shadow(0 0 4px rgba(251, 146, 60, 0.55)); }
-    .amap-flow--medium .amap-arc--visible { stroke: #fbbf24; filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.4)); }
-    .amap-flow--low .amap-arc--visible { stroke: #fcd34d; opacity: 0.62; filter: drop-shadow(0 0 2px rgba(252, 211, 77, 0.35)); }
-
-    .amap-flow:hover .amap-arc--visible,
-    .amap-flow.is-highlighted .amap-arc--visible {
-        stroke-width: 2.6;
-        opacity: 1;
-        filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.85)) !important;
-    }
-
-    .amap-flow.is-dimmed .amap-arc--visible {
-        opacity: 0.18;
-        filter: none !important;
-    }
-
-    @keyframes amap-dash {
-        to { stroke-dashoffset: -28; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .amap-arc.amap-arc--visible { animation: none; stroke-dasharray: none; }
-    }
-
-    .amap-origin {
-        cursor: pointer;
-        pointer-events: all;
-        transition: opacity 0.2s ease, filter 0.2s ease;
-    }
-
-    .amap-origin:hover,
-    .amap-origin.is-highlighted {
-        filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.45));
-    }
-
-    .amap-origin-lbl {
-        font-size: 11px;
-        font-weight: 600;
-        fill: #f8fafc;
-        paint-order: stroke fill;
-        stroke: rgba(3, 7, 18, 0.92);
-        stroke-width: 3.5px;
-        stroke-linejoin: round;
-        pointer-events: none;
-    }
-
-    .amap-origin-sub {
-        font-size: 9px;
-        font-weight: 500;
-        fill: #94a3b8;
-        paint-order: stroke fill;
-        stroke: rgba(3, 7, 18, 0.92);
-        stroke-width: 3px;
-        pointer-events: none;
-    }
-
-    .amap-origin-core {
-        transition: stroke 0.2s ease, fill 0.2s ease;
-    }
-
-    .amap-origin:hover .amap-origin-core,
-    .amap-origin.is-highlighted .amap-origin-core {
-        fill: #1e3a5f;
-        stroke: #38bdf8;
-        stroke-width: 2;
-    }
-
-    .amap-origin-ring {
-        animation: amap-origin-pulse 2.2s ease-in-out infinite;
-        transform-origin: center;
-        transform-box: fill-box;
-    }
-
-    @keyframes amap-origin-pulse {
-        0%, 100% { opacity: 0.22; }
-        50% { opacity: 0.55; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .amap-origin-ring { animation: none; opacity: 0.35; }
-    }
-
-    .amap-origin.is-dimmed {
-        opacity: 0.22;
-    }
-
-    .amap-origin.is-dimmed .amap-origin-lbl,
-    .amap-origin.is-dimmed .amap-origin-sub {
-        opacity: 0.35;
-    }
-
-    .amap-tip {
-        position: absolute;
-        z-index: 30;
-        min-width: 200px;
-        max-width: 280px;
-        padding: 12px 14px;
-        border-radius: 10px;
-        background: linear-gradient(165deg, rgba(22, 32, 52, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
-        border: 1px solid rgba(56, 189, 248, 0.28);
-        box-shadow:
-            0 0 0 1px rgba(0, 0, 0, 0.35),
-            0 16px 40px rgba(0, 0, 0, 0.55);
-        pointer-events: none;
-        opacity: 0;
-        transform: translateY(4px);
-        transition: opacity 0.18s ease, transform 0.18s ease;
-    }
-
-    .amap-tip.is-visible {
-        opacity: 1;
-        transform: translateY(0);
-    }
-
-    .amap-tip__title {
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: #f1f5f9;
-        margin: 0 0 6px;
-        line-height: 1.35;
-    }
-
-    .amap-tip__meta {
-        font-size: 0.72rem;
-        color: #94a3b8;
-        line-height: 1.45;
-        margin: 0;
-    }
-
-    .amap-tip__meta strong {
-        color: #cbd5e1;
-        font-weight: 600;
-    }
-
-    .amap-tip__sev {
-        display: inline-block;
-        margin-top: 8px;
-        padding: 3px 8px;
-        border-radius: 4px;
-        font-size: 0.65rem;
-        font-weight: 700;
-        text-transform: capitalize;
-    }
-
-    .amap-tip__sev--critical,
-    .amap-tip__sev--high { background: rgba(248, 113, 113, 0.2); color: #fca5a5; }
-    .amap-tip__sev--medium { background: rgba(251, 146, 60, 0.2); color: #fdba74; }
-    .amap-tip__sev--low { background: rgba(74, 222, 128, 0.15); color: #86efac; }
-
-    .amap-src-item--interactive {
-        cursor: pointer;
-        border-radius: 8px;
-        margin: 0 -6px;
-        padding: 4px 6px;
-        transition: background 0.15s ease;
-    }
-
-    .amap-src-item--interactive:hover {
-        background: rgba(56, 189, 248, 0.08);
-    }
-
-    .amap-home {
-        filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.85));
-    }
-
-    .amap-home-pulse {
-        animation: amap-pulse 2.4s ease-in-out infinite;
-    }
-
-    @keyframes amap-pulse {
-        0%, 100% { r: 9; opacity: 0.5; }
-        50% { r: 18; opacity: 0; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .amap-home-pulse { display: none; }
-    }
-
-    .amap-home-label {
-        font-size: 11px;
-        fill: #7dd3fc;
-        font-weight: 600;
-    }
-
-    .amap-src-list { display: flex; flex-direction: column; gap: 10px; }
-    .amap-src-item { display: grid; grid-template-columns: 28px 1fr 36px; gap: 8px; align-items: center; font-size: 0.78rem; }
-    .amap-src-flag { font-size: 1.1rem; line-height: 1; text-align: center; }
-    .amap-src-name { color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .amap-src-bar { height: 6px; border-radius: 3px; background: rgba(30, 58, 95, 0.6); overflow: hidden; grid-column: 2 / -1; }
-    .amap-src-bar > span { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #d97706, #fbbf24); }
-
-    .amap-types { list-style: none; margin: 0; padding: 0; }
-    .amap-types li {
-        display: flex;
-        justify-content: space-between;
         gap: 8px;
-        padding: 6px 0;
-        border-bottom: 1px solid rgba(51, 65, 85, 0.45);
-        font-size: 0.78rem;
     }
-    .amap-types li:last-child { border-bottom: 0; }
-    .amap-types span:first-child { color: #94a3b8; overflow: hidden; text-overflow: ellipsis; }
-    .amap-types strong { color: var(--amap-orange2); font-variant-numeric: tabular-nums; }
+    .rtm-chip {
+        appearance: none;
+        border: 1px solid var(--rtm-border);
+        background: var(--rtm-panel);
+        color: #94a3b8;
+        border-radius: 999px;
+        padding: 7px 14px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        cursor: pointer;
+        backdrop-filter: blur(10px);
+        transition: all 0.2s;
+    }
+    .rtm-chip.is-active, .rtm-chip:hover {
+        color: #fff;
+        border-color: var(--rtm-cyan);
+        box-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
+    }
+    .rtm-chip strong {
+        margin-left: 6px;
+        color: var(--rtm-cyan);
+        font-variant-numeric: tabular-nums;
+    }
 
-    .amap-table-wrap { overflow-x: auto; }
-    .amap-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
-    .amap-table th {
+    .rtm-feed {
+        width: 100%;
+        max-height: 140px;
+        overflow: auto;
+        background: var(--rtm-panel);
+        border: 1px solid var(--rtm-border);
+        border-radius: 12px;
+        backdrop-filter: blur(14px);
+        padding: 8px 4px;
+    }
+    .rtm-feed table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.72rem;
+    }
+    .rtm-feed th {
         text-align: left;
-        padding: 8px 6px;
-        color: #64748b;
+        color: var(--rtm-muted);
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        border-bottom: 1px solid var(--amap-border);
+        letter-spacing: 0.06em;
+        padding: 4px 10px;
+        border-bottom: 1px solid rgba(148,163,184,0.12);
     }
-    .amap-table td { padding: 8px 6px; border-bottom: 1px solid rgba(51, 65, 85, 0.35); vertical-align: middle; }
-    .amap-table tr:hover td { background: rgba(56, 189, 248, 0.04); }
-
-    .amap-sev { font-weight: 700; text-transform: capitalize; }
-    .amap-sev--critical, .amap-sev--high { color: #f87171; }
-    .amap-sev--medium { color: #fb923c; }
-    .amap-sev--low { color: #4ade80; }
-
-    .amap-atype { color: var(--amap-orange); font-weight: 500; }
-
-    .amap-bottom {
-        display: grid;
-        grid-template-columns: 240px minmax(420px, 1fr) 260px;
-        gap: 14px;
-        margin-top: 14px;
+    .rtm-feed td {
+        padding: 6px 10px;
+        border-bottom: 1px solid rgba(148,163,184,0.06);
+        color: #cbd5e1;
+        white-space: nowrap;
     }
+    .rtm-feed tr:hover td { background: rgba(56, 189, 248, 0.06); }
+    .rtm-sev--critical, .rtm-sev--high { color: var(--rtm-red); font-weight: 700; text-transform: uppercase; }
+    .rtm-sev--medium { color: var(--rtm-orange); font-weight: 700; text-transform: uppercase; }
+    .rtm-sev--low { color: var(--rtm-cyan); font-weight: 700; text-transform: uppercase; }
+    .rtm-atype { color: #fbbf24; }
 
-    @media (max-width: 1200px) {
-        .amap-bottom { grid-template-columns: 1fr; }
+    .rtm-tip {
+        position: absolute;
+        z-index: 20;
+        min-width: 160px;
+        max-width: 260px;
+        padding: 10px 12px;
+        background: rgba(2, 12, 28, 0.92);
+        border: 1px solid var(--rtm-border);
+        border-radius: 8px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+        backdrop-filter: blur(8px);
     }
+    .rtm-tip.is-visible { opacity: 1; }
+    .rtm-tip__title { margin: 0 0 4px; font-weight: 700; font-size: 0.85rem; color: #fff; }
+    .rtm-tip__meta { margin: 0; font-size: 0.72rem; color: #94a3b8; }
 
-    .amap-empty { color: #64748b; font-size: 0.8rem; text-align: center; padding: 12px; }
+    @media (max-width: 960px) {
+        .rtm-side { display: none; }
+        .rtm-kpis { display: none; }
+        .rtm-brand__title { font-size: 0.9rem; letter-spacing: 0.08em; }
+    }
 </style>
 @endpush
 
@@ -485,219 +413,183 @@
 
         return mb_chr(0x1F1E6 - 65 + ord($code[0]), 'UTF-8').mb_chr(0x1F1E6 - 65 + ord($code[1]), 'UTF-8');
     };
+    $liveMins = (int) ($liveWindowMinutes ?? 30);
+    $buckets = $categoryBuckets ?? [];
 @endphp
-<div class="amap">
-    <header class="amap-header">
-        <div class="amap-header__left">
-            <div id="amap-clock" data-locale="fr">{{ now()->format('D Y-m-d H:i:s') }}</div>
-            <div><strong>Région / pays :</strong> {{ $home['label'] }}</div>
-        </div>
-        <h1 class="amap-header__title">Attack Map</h1>
-        <div class="amap-header__right">
-            <a href="{{ route('dashboard') }}" class="amap-icon-btn" title="Retour à l’application">🖥</a>
-        </div>
-    </header>
 
-    <div class="amap-grid">
-        <div class="amap-panel">
-            <h3>Live ({{ $liveWindowMinutes ?? 30 }} min)</h3>
-            <div class="amap-kpis">
-                <div class="amap-kpi">
-                    <div class="amap-kpi__icon" aria-hidden="true">🔔</div>
-                    <div>
-                        <div class="amap-kpi__val">{{ $eventsToday }}</div>
-                        <div class="amap-kpi__lbl">Événements sécurité</div>
-                    </div>
-                </div>
-                <div class="amap-kpi amap-kpi--attacks">
-                    <div class="amap-kpi__icon" aria-hidden="true">⚔</div>
-                    <div>
-                        <div class="amap-kpi__val">{{ $attacksToday }}</div>
-                        <div class="amap-kpi__lbl">Attaques (volume)</div>
-                    </div>
-                </div>
-            </div>
-            @php
-                $thMax = max(1, $threatToday['high'], $threatToday['medium'], $threatToday['low']);
-                $pctH = (int) round(100 * $threatToday['high'] / $thMax);
-                $pctM = (int) round(100 * $threatToday['medium'] / $thMax);
-                $pctL = (int) round(100 * $threatToday['low'] / $thMax);
-            @endphp
-            <h3 style="margin-top:18px;">Niveau de menace</h3>
-            <div class="amap-bars">
-                <div class="amap-bar-row">
-                    <span>High</span>
-                    <div class="amap-bar-track"><div class="amap-bar-fill amap-bar-fill--high" style="width: {{ $pctH }}%;"></div></div>
-                    <strong>{{ $threatToday['high'] }}</strong>
-                </div>
-                <div class="amap-bar-row">
-                    <span>Medium</span>
-                    <div class="amap-bar-track"><div class="amap-bar-fill amap-bar-fill--med" style="width: {{ $pctM }}%;"></div></div>
-                    <strong>{{ $threatToday['medium'] }}</strong>
-                </div>
-                <div class="amap-bar-row">
-                    <span>Low</span>
-                    <div class="amap-bar-track"><div class="amap-bar-fill amap-bar-fill--low" style="width: {{ $pctL }}%;"></div></div>
-                    <strong>{{ $threatToday['low'] }}</strong>
-                </div>
-            </div>
-        </div>
+<div class="rtm" id="rtm">
+    <div class="rtm-stars" aria-hidden="true"></div>
 
-        <div class="amap-panel amap-map-wrap">
-            <div class="amap-map-inner">
-                <svg class="amap-svg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {{ $mapSize['w'] }} {{ $mapSize['h'] }}" preserveAspectRatio="xMidYMid meet" aria-label="Carte des flux d’attaque">
-                    <defs>
-                        <filter id="amap-glow" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur stdDeviation="1.2" result="b" />
-                            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-                        </filter>
-                    </defs>
-                    <image
-                        class="amap-world-bg"
-                        href="{{ asset('images/world-map.svg') }}"
-                        xlink:href="{{ asset('images/world-map.svg') }}"
-                        x="0"
-                        y="0"
-                        width="{{ $mapSize['w'] }}"
-                        height="{{ $mapSize['h'] }}"
-                        preserveAspectRatio="xMidYMid slice"
-                    />
-                    @foreach($arcs as $arc)
-                        @php
-                            $sev = in_array($arc['severity'] ?? '', ['critical', 'high', 'medium', 'low'], true)
-                                ? $arc['severity']
-                                : 'medium';
-                        @endphp
-                        <g
-                            class="amap-flow amap-flow--{{ $sev }}"
-                            data-amap-flow="1"
-                            data-code="{{ $arc['code'] }}"
-                            data-country="{{ $arc['country'] }}"
-                            data-ip="{{ $arc['ip'] }}"
-                            data-severity="{{ $sev }}"
-                        >
-                            <path class="amap-arc amap-arc--visible amap-arc--{{ $sev }}" d="{{ $arc['path'] }}" filter="url(#amap-glow)" />
-                            <path class="amap-arc-hit" d="{{ $arc['path'] }}" vector-effect="non-scaling-stroke" />
-                        </g>
-                    @endforeach
-                    @foreach($originMarkers as $om)
-                        @php $omFlag = $flagEmoji($om['code']); @endphp
-                        <g
-                            class="amap-origin"
-                            transform="translate({{ round($om['sx'], 2) }}, {{ round($om['sy'], 2) }})"
-                            data-amap-origin="1"
-                            data-code="{{ $om['code'] }}"
-                            data-country="{{ $om['name'] }}"
-                            data-ip-count="{{ (int) $om['ip_count'] }}"
-                            data-ips="{{ implode(' · ', $om['ips_preview']) }}"
-                        >
-                            <circle class="amap-origin-ring" r="12" cx="0" cy="0" fill="none" stroke="#fb923c" stroke-width="0.75" />
-                            <circle class="amap-origin-core" r="5" cx="0" cy="0" />
-                            <text class="amap-origin-lbl" x="0" y="-14" text-anchor="middle">{{ $omFlag }} {{ \Illuminate\Support\Str::limit($om['name'], 22) }}</text>
-                            @if($om['ip_count'] > 1)
-                                <text class="amap-origin-sub" x="0" y="17" text-anchor="middle">{{ $om['ip_count'] }} IP distinctes</text>
-                            @endif
-                        </g>
-                    @endforeach
-                    <circle class="amap-home-pulse" cx="{{ $homeXY['x'] }}" cy="{{ $homeXY['y'] }}" r="14" fill="none" stroke="#38bdf8" stroke-width="1" />
-                    <circle class="amap-home" cx="{{ $homeXY['x'] }}" cy="{{ $homeXY['y'] }}" r="7" fill="#0ea5e9" stroke="#e0f2fe" stroke-width="1.5" />
-                    <text class="amap-home-label" x="{{ $homeXY['x'] }}" y="{{ $homeXY['y'] + 22 }}" text-anchor="middle">{{ \Illuminate\Support\Str::limit($home['label'], 18) }}</text>
-                </svg>
-                <div id="amap-tip" class="amap-tip" role="tooltip" hidden>
-                    <p class="amap-tip__title" id="amap-tip-title"></p>
-                    <p class="amap-tip__meta" id="amap-tip-meta"></p>
-                    <span class="amap-tip__sev" id="amap-tip-sev" hidden></span>
-                </div>
-            </div>
-        </div>
+    <div class="rtm-stage">
+        <svg class="rtm-svg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+             viewBox="0 0 {{ $mapSize['w'] }} {{ $mapSize['h'] }}"
+             preserveAspectRatio="xMidYMid slice"
+             aria-label="Live Threat Map">
+            <defs>
+                <filter id="rtm-soft" x="-40%" y="-40%" width="180%" height="180%">
+                    <feGaussianBlur stdDeviation="1.2" result="b"/>
+                    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                <radialGradient id="rtm-glow-home" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.45"/>
+                    <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
+                </radialGradient>
+            </defs>
 
-        <div class="amap-panel">
-            <h3>Sources d’attaque</h3>
-            @if(count($sourceCountries) === 0)
-                <p class="amap-empty">Aucune IP source publique sur 7 jours.</p>
-            @else
-                <div class="amap-src-list">
-                    @foreach($sourceCountries as $src)
-                        <div class="amap-src-item--interactive" data-amap-code="{{ $src['code'] }}">
-                            <div class="amap-src-item">
-                                <span class="amap-src-flag" title="{{ $src['code'] }}">{{ $flagEmoji($src['code']) }}</span>
-                                <span class="amap-src-name">{{ $src['name'] }}</span>
-                                <strong style="font-variant-numeric:tabular-nums;color:#f1f5f9;">{{ $src['count'] }}</strong>
-                            </div>
-                            <div class="amap-src-bar"><span style="width: {{ $src['pct'] }}%;"></span></div>
-                        </div>
-                    @endforeach
-                </div>
-            @endif
+            <image class="rtm-world"
+                   href="{{ asset('images/world-map.svg') }}"
+                   xlink:href="{{ asset('images/world-map.svg') }}"
+                   x="0" y="0"
+                   width="{{ $mapSize['w'] }}" height="{{ $mapSize['h'] }}"
+                   preserveAspectRatio="xMidYMid slice"/>
+
+            @foreach($arcs as $i => $arc)
+                @php
+                    $sev = in_array($arc['severity'] ?? '', ['critical', 'high', 'medium', 'low'], true)
+                        ? $arc['severity'] : 'medium';
+                    $cat = $arc['category'] ?? 'other';
+                @endphp
+                <g class="rtm-flow rtm-flow--{{ $sev }}"
+                   data-rtm-flow="1"
+                   data-code="{{ $arc['code'] }}"
+                   data-country="{{ $arc['country'] }}"
+                   data-ip="{{ $arc['ip'] }}"
+                   data-severity="{{ $sev }}"
+                   data-category="{{ $cat }}">
+                    <path class="rtm-arc" id="rtm-arc-{{ $i }}" d="{{ $arc['path'] }}" filter="url(#rtm-soft)"/>
+                    <circle class="rtm-pulse" r="3">
+                        <animateMotion dur="{{ 2.2 + ($i % 5) * 0.4 }}s" repeatCount="indefinite" begin="{{ ($i % 7) * 0.25 }}s">
+                            <mpath xlink:href="#rtm-arc-{{ $i }}"/>
+                        </animateMotion>
+                    </circle>
+                </g>
+            @endforeach
+
+            @foreach($originMarkers as $om)
+                <g class="rtm-origin"
+                   transform="translate({{ round($om['sx'], 2) }}, {{ round($om['sy'], 2) }})"
+                   data-rtm-origin="1"
+                   data-code="{{ $om['code'] }}"
+                   data-country="{{ $om['name'] }}"
+                   data-ip-count="{{ (int) $om['ip_count'] }}">
+                    <circle class="rtm-origin-ring" r="10" cx="0" cy="0"/>
+                    <circle class="rtm-origin-core" r="4.5" cx="0" cy="0"/>
+                    <text class="rtm-label" x="0" y="-14" text-anchor="middle">{{ $flagEmoji($om['code']) }} {{ \Illuminate\Support\Str::limit($om['name'], 16) }}</text>
+                </g>
+            @endforeach
+
+            <circle cx="{{ $homeXY['x'] }}" cy="{{ $homeXY['y'] }}" r="32" fill="url(#rtm-glow-home)"/>
+            <circle class="rtm-home-ring" cx="{{ $homeXY['x'] }}" cy="{{ $homeXY['y'] }}" r="10"/>
+            <circle class="rtm-home" cx="{{ $homeXY['x'] }}" cy="{{ $homeXY['y'] }}" r="6"/>
+            <text class="rtm-label rtm-label--home" x="{{ $homeXY['x'] }}" y="{{ $homeXY['y'] + 24 }}" text-anchor="middle">{{ \Illuminate\Support\Str::limit($home['label'] ?? 'SOC', 20) }}</text>
+        </svg>
+
+        <div id="rtm-tip" class="rtm-tip" hidden>
+            <p class="rtm-tip__title" id="rtm-tip-title"></p>
+            <p class="rtm-tip__meta" id="rtm-tip-meta"></p>
         </div>
     </div>
 
-    <div class="amap-bottom">
-        <div class="amap-panel">
-            <h3>Principales cibles</h3>
-            @if($topTargets->isEmpty())
-                <p class="amap-empty">Aucune cible récente.</p>
+    <div class="rtm-hud rtm-top">
+        <div class="rtm-brand">
+            <h1 class="rtm-brand__title">Live Threat Map</h1>
+            <div class="rtm-brand__sub">KORASHIELD · cible {{ $home['label'] ?? 'SOC' }}</div>
+            <div class="rtm-live"><i></i> Live · fenêtre {{ $liveMins }} min · <span id="rtm-clock">{{ now()->format('H:i:s') }}</span></div>
+        </div>
+        <div class="rtm-kpis">
+            <div class="rtm-kpi">
+                <div class="rtm-kpi__val">{{ number_format($eventsToday) }}</div>
+                <div class="rtm-kpi__lbl">Events</div>
+            </div>
+            <div class="rtm-kpi rtm-kpi--hot">
+                <div class="rtm-kpi__val">{{ number_format($attacksToday) }}</div>
+                <div class="rtm-kpi__lbl">Attacks</div>
+            </div>
+            <div class="rtm-kpi">
+                <div class="rtm-kpi__val">{{ number_format($threatToday['high'] ?? 0) }}</div>
+                <div class="rtm-kpi__lbl">High / Crit</div>
+            </div>
+        </div>
+        <div class="rtm-actions">
+            <a class="rtm-btn" href="{{ route('monitor.monitors') }}">Monitors</a>
+            <a class="rtm-btn" href="{{ route('dashboard') }}">Dashboard</a>
+        </div>
+    </div>
+
+    <aside class="rtm-hud rtm-side rtm-side--left">
+        <h3>Top Attackers</h3>
+        @if(count($sourceCountries) === 0)
+            <p class="rtm-empty">Aucune source géolocalisée dans la fenêtre live.</p>
+        @else
+            <ol class="rtm-rank">
+                @foreach($sourceCountries as $src)
+                    <li data-rtm-code="{{ $src['code'] }}">
+                        <span class="rtm-rank__n">{{ $loop->iteration }}</span>
+                        <span class="rtm-rank__name">{{ $flagEmoji($src['code']) }} {{ $src['name'] }}</span>
+                        <span class="rtm-rank__pct">{{ $src['share'] ?? $src['pct'] }}%</span>
+                        <span class="rtm-rank__bar"><i style="width:{{ $src['pct'] }}%"></i></span>
+                    </li>
+                @endforeach
+            </ol>
+        @endif
+    </aside>
+
+    <aside class="rtm-hud rtm-side rtm-side--right">
+        <h3>Top Attacked</h3>
+        @if($topTargets->isEmpty())
+            <p class="rtm-empty">Aucune cible dans la fenêtre live.</p>
+        @else
+            <ol class="rtm-rank">
+                @foreach($topTargets as $t)
+                    <li>
+                        <span class="rtm-rank__n">{{ $loop->iteration }}</span>
+                        <span class="rtm-rank__name" title="{{ $t->target_ip }}">{{ \Illuminate\Support\Str::limit($t->affected_asset ?: $t->target_ip, 22) }}</span>
+                        <span class="rtm-rank__pct">{{ $t->share ?? 0 }}%</span>
+                        <span class="rtm-rank__bar"><i style="width:{{ min(100, max(8, (int)($t->share ?? 0))) }}%"></i></span>
+                    </li>
+                @endforeach
+            </ol>
+        @endif
+    </aside>
+
+    <div class="rtm-hud rtm-bottom">
+        <div class="rtm-filters" role="tablist" aria-label="Filtres d’attaque">
+            <button type="button" class="rtm-chip is-active" data-rtm-filter="all">All <strong>{{ count($arcs) }}</strong></button>
+            @foreach($buckets as $key => $bucket)
+                <button type="button" class="rtm-chip" data-rtm-filter="{{ $key }}">
+                    {{ $bucket['label'] }} <strong>{{ (int) $bucket['count'] }}</strong>
+                </button>
+            @endforeach
+        </div>
+
+        <div class="rtm-feed">
+            @if($recentRows->isEmpty())
+                <p class="rtm-empty" style="padding:12px 16px;margin:0;">Aucun événement dans les {{ $liveMins }} dernières minutes.</p>
             @else
-                <table class="amap-table">
+                <table>
                     <thead>
-                        <tr><th>Nom</th><th>Total</th></tr>
+                        <tr>
+                            <th>Heure</th>
+                            <th>Origine</th>
+                            <th>IP</th>
+                            <th>Cible</th>
+                            <th>Type</th>
+                            <th>Gravité</th>
+                        </tr>
                     </thead>
                     <tbody>
-                        @foreach($topTargets as $t)
+                        @foreach($recentRows->take(8) as $row)
                             <tr>
-                                <td>{{ ($t->affected_asset ?: 'Sans nom') }} ({{ $t->target_ip }})</td>
-                                <td><strong>{{ $t->c }}</strong></td>
+                                <td>{{ $row['time']?->format('H:i:s') ?? '—' }}</td>
+                                <td>{{ $flagEmoji($row['geo_code']) }} {{ $row['geo_label'] }}</td>
+                                <td>{{ $row['source_ip'] }}</td>
+                                <td>{{ $row['target_ip'] }}</td>
+                                <td class="rtm-atype">{{ $row['attack_type'] }}</td>
+                                <td class="rtm-sev--{{ $row['severity'] }}">{{ $row['severity'] }}</td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
-            @endif
-        </div>
-
-        <div class="amap-panel">
-            <h3>Attaques récentes</h3>
-            <div class="amap-table-wrap">
-                @if($recentRows->isEmpty())
-                    <p class="amap-empty">Aucune alerte en base.</p>
-                @else
-                    <table class="amap-table">
-                        <thead>
-                            <tr>
-                                <th>Heure</th>
-                                <th>Origine</th>
-                                <th>IP attaquant</th>
-                                <th>IP cible</th>
-                                <th>Type</th>
-                                <th>Gravité</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($recentRows as $row)
-                                <tr>
-                                    <td>{{ $row['time']?->format('m/d H:i:s') ?? '—' }}</td>
-                                    <td>{{ $flagEmoji($row['geo_code']) }} {{ $row['geo_label'] }}</td>
-                                    <td>{{ $row['source_ip'] }}</td>
-                                    <td>{{ $row['target_ip'] }}</td>
-                                    <td class="amap-atype">{{ $row['attack_type'] }}</td>
-                                    <td class="amap-sev amap-sev--{{ $row['severity'] }}">{{ $row['severity'] }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @endif
-            </div>
-        </div>
-
-        <div class="amap-panel">
-            <h3>Types d’attaque</h3>
-            @if($attackTypes->isEmpty())
-                <p class="amap-empty">Aucune donnée sur 7 jours.</p>
-            @else
-                <ul class="amap-types">
-                    @foreach($attackTypes as $label => $cnt)
-                        <li><span>{{ $label }}</span><strong>{{ $cnt }}</strong></li>
-                    @endforeach
-                </ul>
             @endif
         </div>
     </div>
@@ -707,147 +599,107 @@
 @push('scripts')
 <script>
 (function () {
-    var el = document.getElementById('amap-clock');
-    if (!el) return;
-    var locale = el.getAttribute('data-locale') || 'fr';
-    var daysEn = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    var daysFr = ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
+    var clock = document.getElementById('rtm-clock');
     function tick() {
+        if (!clock) return;
         var d = new Date();
-        var days = locale === 'fr' ? daysFr : daysEn;
-        var y = d.getFullYear();
-        var mo = String(d.getMonth() + 1).padStart(2, '0');
-        var day = String(d.getDate()).padStart(2, '0');
-        var h = String(d.getHours()).padStart(2, '0');
-        var mi = String(d.getMinutes()).padStart(2, '0');
-        var s = String(d.getSeconds()).padStart(2, '0');
-        el.textContent = days[d.getDay()] + ' ' + y + '-' + mo + '-' + day + ' ' + h + ':' + mi + ':' + s;
+        clock.textContent = [d.getHours(), d.getMinutes(), d.getSeconds()]
+            .map(function (n) { return String(n).padStart(2, '0'); }).join(':');
     }
     tick();
     setInterval(tick, 1000);
+
+    // Auto-refresh fenêtre live
+    var mins = {{ max(1, (int) ($liveWindowMinutes ?? 30)) }};
+    setTimeout(function () { window.location.reload(); }, mins * 60 * 1000);
 })();
 
 (function () {
-    var wrap = document.querySelector('.amap-map-inner');
-    var tip = document.getElementById('amap-tip');
-    var tipTitle = document.getElementById('amap-tip-title');
-    var tipMeta = document.getElementById('amap-tip-meta');
-    var tipSev = document.getElementById('amap-tip-sev');
-    if (!wrap || !tip || !tipTitle || !tipMeta || !tipSev) return;
+    var stage = document.querySelector('.rtm-stage');
+    var tip = document.getElementById('rtm-tip');
+    var tipTitle = document.getElementById('rtm-tip-title');
+    var tipMeta = document.getElementById('rtm-tip-meta');
+    if (!stage || !tip) return;
 
     var hideTimer = null;
     var highlightCode = null;
+    var activeFilter = 'all';
 
-    function escapeHtml(s) {
-        var d = document.createElement('div');
-        d.textContent = s;
-        return d.innerHTML;
-    }
-
-    function placeTip(clientX, clientY) {
-        var r = wrap.getBoundingClientRect();
-        var x = clientX - r.left + 12;
-        var y = clientY - r.top + 12;
+    function place(e) {
+        var r = stage.getBoundingClientRect();
+        var x = e.clientX - r.left + 14;
+        var y = e.clientY - r.top + 14;
         tip.style.left = x + 'px';
         tip.style.top = y + 'px';
-        requestAnimationFrame(function () {
-            var tw = tip.offsetWidth;
-            var th = tip.offsetHeight;
-            if (x + tw > r.width - 10) x = Math.max(10, r.width - tw - 10);
-            if (y + th > r.height - 10) y = Math.max(10, r.height - th - 10);
-            tip.style.left = x + 'px';
-            tip.style.top = y + 'px';
-        });
     }
-
-    function showTip() {
+    function show() {
         tip.removeAttribute('hidden');
-        requestAnimationFrame(function () {
-            tip.classList.add('is-visible');
-        });
+        requestAnimationFrame(function () { tip.classList.add('is-visible'); });
     }
-
-    function hideTip() {
+    function hide() {
         tip.classList.remove('is-visible');
-        setTimeout(function () {
-            tip.setAttribute('hidden', '');
-        }, 200);
+        setTimeout(function () { tip.setAttribute('hidden', ''); }, 150);
     }
 
-    function bindFlow(g) {
+    stage.querySelectorAll('[data-rtm-flow="1"]').forEach(function (g) {
         g.addEventListener('mouseenter', function (e) {
             clearTimeout(hideTimer);
-            var country = g.getAttribute('data-country') || '';
-            var sev = g.getAttribute('data-severity') || 'medium';
             tipTitle.textContent = g.getAttribute('data-ip') || '—';
-            tipMeta.innerHTML = '<strong>Provenance</strong> · ' + escapeHtml(country);
-            tipSev.hidden = false;
-            tipSev.textContent = sev;
-            tipSev.className = 'amap-tip__sev amap-tip__sev--' + sev;
-            showTip();
-            placeTip(e.clientX, e.clientY);
+            tipMeta.textContent = (g.getAttribute('data-country') || '') + ' · ' + (g.getAttribute('data-severity') || '');
+            show(); place(e);
         });
-        g.addEventListener('mousemove', function (e) {
-            if (!tip.hasAttribute('hidden')) placeTip(e.clientX, e.clientY);
-        });
-        g.addEventListener('mouseleave', function () {
-            hideTimer = setTimeout(hideTip, 100);
-        });
-    }
+        g.addEventListener('mousemove', place);
+        g.addEventListener('mouseleave', function () { hideTimer = setTimeout(hide, 80); });
+    });
 
-    function bindOrigin(g) {
+    stage.querySelectorAll('[data-rtm-origin="1"]').forEach(function (g) {
         g.addEventListener('mouseenter', function (e) {
             clearTimeout(hideTimer);
-            var country = g.getAttribute('data-country') || '';
-            var cnt = g.getAttribute('data-ip-count') || '0';
-            var ips = g.getAttribute('data-ips') || '';
-            tipTitle.textContent = country;
-            var html = '<strong>Sources</strong> · ' + escapeHtml(String(cnt)) + ' adresse(s) distincte(s)';
-            if (ips) html += '<br><span style="color:#64748b;font-size:0.68rem;">' + escapeHtml(ips) + '</span>';
-            tipMeta.innerHTML = html;
-            tipSev.hidden = true;
-            showTip();
-            placeTip(e.clientX, e.clientY);
+            tipTitle.textContent = g.getAttribute('data-country') || '';
+            tipMeta.textContent = (g.getAttribute('data-ip-count') || '0') + ' IP source(s)';
+            show(); place(e);
         });
-        g.addEventListener('mousemove', function (e) {
-            if (!tip.hasAttribute('hidden')) placeTip(e.clientX, e.clientY);
-        });
-        g.addEventListener('mouseleave', function () {
-            hideTimer = setTimeout(hideTip, 100);
-        });
-    }
-
-    wrap.querySelectorAll('[data-amap-flow="1"]').forEach(bindFlow);
-    wrap.querySelectorAll('[data-amap-origin="1"]').forEach(bindOrigin);
+        g.addEventListener('mousemove', place);
+        g.addEventListener('mouseleave', function () { hideTimer = setTimeout(hide, 80); });
+    });
 
     function applyHighlight() {
-        var flows = wrap.querySelectorAll('[data-amap-flow="1"]');
-        var origins = wrap.querySelectorAll('[data-amap-origin="1"]');
-        if (!highlightCode) {
-            flows.forEach(function (el) { el.classList.remove('is-highlighted', 'is-dimmed'); });
-            origins.forEach(function (el) { el.classList.remove('is-highlighted', 'is-dimmed'); });
-            return;
-        }
-        flows.forEach(function (el) {
-            var match = el.getAttribute('data-code') === highlightCode;
-            el.classList.toggle('is-highlighted', match);
-            el.classList.toggle('is-dimmed', !match);
-        });
-        origins.forEach(function (el) {
+        stage.querySelectorAll('[data-rtm-flow="1"], [data-rtm-origin="1"]').forEach(function (el) {
+            if (!highlightCode) {
+                el.classList.remove('is-highlighted', 'is-dimmed');
+                return;
+            }
             var match = el.getAttribute('data-code') === highlightCode;
             el.classList.toggle('is-highlighted', match);
             el.classList.toggle('is-dimmed', !match);
         });
     }
 
-    document.querySelectorAll('[data-amap-code]').forEach(function (row) {
+    document.querySelectorAll('[data-rtm-code]').forEach(function (row) {
         row.addEventListener('mouseenter', function () {
-            highlightCode = row.getAttribute('data-amap-code');
+            highlightCode = row.getAttribute('data-rtm-code');
             applyHighlight();
         });
         row.addEventListener('mouseleave', function () {
             highlightCode = null;
             applyHighlight();
+        });
+    });
+
+    function applyFilter() {
+        stage.querySelectorAll('[data-rtm-flow="1"]').forEach(function (el) {
+            var cat = el.getAttribute('data-category') || '';
+            var show = activeFilter === 'all' || cat === activeFilter;
+            el.style.display = show ? '' : 'none';
+        });
+    }
+
+    document.querySelectorAll('[data-rtm-filter]').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+            document.querySelectorAll('[data-rtm-filter]').forEach(function (c) { c.classList.remove('is-active'); });
+            chip.classList.add('is-active');
+            activeFilter = chip.getAttribute('data-rtm-filter') || 'all';
+            applyFilter();
         });
     });
 })();

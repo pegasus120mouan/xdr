@@ -12,7 +12,8 @@ class TotpService
 {
     public function __construct(protected Google2FA $google2fa)
     {
-        $this->google2fa->setWindow(1);
+        // ±2 périodes (≈ ±60s) pour tolérer un léger décalage d’horloge téléphone / serveur
+        $this->google2fa->setWindow(2);
     }
 
     public function generateSecret(): string

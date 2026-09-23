@@ -316,6 +316,7 @@ class MonitorController extends Controller
             $arcs[] = [
                 'path' => sprintf('M %.2f,%.2f Q %.2f,%.2f %.2f,%.2f', $sx, $sy, $mx, $my, $hx, $hy),
                 'severity' => $alert->severity,
+                'category' => (string) ($alert->rule?->category ?? 'other'),
                 'sx' => $sx,
                 'sy' => $sy,
                 'country' => $geo['name'],
@@ -359,10 +360,12 @@ class MonitorController extends Controller
 
         uasort($countryAgg, fn ($a, $b) => $b['count'] <=> $a['count']);
         $sourceCountries = array_values($countryAgg);
+        $srcTotal = array_sum(array_column($sourceCountries, 'count')) ?: 1;
         $srcCounts = array_column($sourceCountries, 'count');
         $maxSrc = $srcCounts === [] ? 1 : max(1, max($srcCounts));
         foreach ($sourceCountries as $i => $row) {
             $sourceCountries[$i]['pct'] = (int) round(100 * $row['count'] / $maxSrc);
+            $sourceCountries[$i]['share'] = (int) round(100 * $row['count'] / $srcTotal);
         }
         $sourceCountries = array_slice($sourceCountries, 0, 10);
 
@@ -405,11 +408,42 @@ class MonitorController extends Controller
             ->limit(8);
         TenantContext::scopeAlerts($topTargetsQuery, $user);
         $topTargets = $topTargetsQuery->get();
+        $tgtTotal = max(1, (int) $topTargets->sum('c'));
+        $topTargets = $topTargets->map(function ($t) use ($tgtTotal) {
+            $t->share = (int) round(100 * (int) $t->c / $tgtTotal);
+
+            return $t;
+        });
+
+        $categoryBuckets = [
+            'web' => ['label' => 'Web Attackers', 'count' => 0],
+            'brute_force' => ['label' => 'Brute Force', 'count' => 0],
+            'intrusion' => ['label' => 'Intruders', 'count' => 0],
+            'malware' => ['label' => 'Malware', 'count' => 0],
+            'authentication' => ['label' => 'Auth Scanners', 'count' => 0],
+        ];
+        foreach ($typeSource as $a) {
+            $cat = (string) ($a->rule?->category ?? '');
+            if (isset($categoryBuckets[$cat])) {
+                $categoryBuckets[$cat]['count']++;
+            } elseif (str_contains($cat, 'web')) {
+                $categoryBuckets['web']['count']++;
+            } else {
+                // leave unmatched out of filter chips
+            }
+        }
 
         $recentListQuery = SecurityAlert::query()
             ->with(['rule:id,name,category'])
             ->orderByDesc('last_seen')
             ->limit(25);
+        $recentListQuery->where(function ($q) use ($mapWindowStart) {
+            $q->where('last_seen', '>=', $mapWindowStart)
+                ->orWhere(function ($q2) use ($mapWindowStart) {
+                    $q2->whereNull('last_seen')
+                        ->where('created_at', '>=', $mapWindowStart);
+                });
+        });
         TenantContext::scopeAlerts($recentListQuery, $user);
         $recentList = $recentListQuery->get();
 
@@ -441,6 +475,7 @@ class MonitorController extends Controller
             'recentRows' => $recentRows,
             'arcs' => $arcs,
             'originMarkers' => $originMarkers,
+            'categoryBuckets' => $categoryBuckets,
         ];
     }
 
