@@ -9,6 +9,7 @@
     $attacksToday = $cyberMap['attacksToday'];
     $threatToday = $cyberMap['threatToday'];
     $liveWindowMinutes = (int) ($cyberMap['liveWindowMinutes'] ?? 30);
+    $displayDays = (int) ($cyberMap['displayDays'] ?? 7);
     $flagEmoji = function (?string $code): string {
         $code = strtoupper(substr((string) $code, 0, 2));
         if (strlen($code) !== 2 || ! ctype_alpha($code)) {
@@ -23,7 +24,7 @@
     <div class="cmap-top">
         <div>
             <h2 class="cmap-title">Carte des cybermenaces</h2>
-            <p class="cmap-subtitle">Flux live · fenêtre {{ $liveWindowMinutes }} min · cible {{ $home['label'] ?? 'Home' }}</p>
+            <p class="cmap-subtitle">Flux carte · {{ $displayDays }} j · cible {{ $home['label'] ?? 'Home' }}</p>
         </div>
         <div class="cmap-kpis">
             <div class="cmap-kpi">
@@ -46,7 +47,7 @@
         <aside class="cmap-rank">
             <h3># Pays les plus attaquants</h3>
             @if(count($sourceCountries) === 0)
-                <p class="cmap-empty">Aucune IP source publique géolocalisée ({{ $liveWindowMinutes }} min).</p>
+                <p class="cmap-empty">Aucune IP source publique géolocalisée ({{ $displayDays }} j).</p>
             @else
                 <ol class="cmap-rank-list">
                     @foreach($sourceCountries as $src)
@@ -117,7 +118,7 @@
             @if(count($arcs) === 0)
                 <div class="cmap-empty-overlay">
                     <p>En attente de flux géolocalisés</p>
-                    <span>Les arcs apparaissent dès qu’une alerte a une IP source publique.</span>
+                    <span>Les arcs apparaissent dès qu’une alerte ({{ $displayDays }} j) a une IP source publique.</span>
                 </div>
             @endif
 

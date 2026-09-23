@@ -15,11 +15,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Fenêtre « live » de la cybermap (arcs + classement pays)
+    | Fenêtre « live » (KPIs SOC Monitors)
     |--------------------------------------------------------------------------
-    | Les flux ne restent affichés que tant qu’il y a des alertes dans cette
-    | fenêtre. Sans agent / sans nouvelles détections, la carte se vide.
     */
     'live_window_minutes' => (int) env('ATTACK_MAP_LIVE_WINDOW_MINUTES', 30),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Fenêtre d’affichage des arcs (carte)
+    |--------------------------------------------------------------------------
+    | Les arcs / Top Attackers utilisent cette fenêtre (jours). Sinon la carte
+    | reste vide dès qu’il n’y a plus d’alerte dans les 30 dernières minutes,
+    | alors que le backlog (Reports) contient encore des attaques.
+    */
+    'display_days' => (int) env('ATTACK_MAP_DISPLAY_DAYS', 30),
 
 ];

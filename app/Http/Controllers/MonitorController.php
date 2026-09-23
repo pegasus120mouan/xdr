@@ -241,9 +241,11 @@ class MonitorController extends Controller
     {
         $home = config('attack_map.home');
         $liveMinutes = max(1, (int) config('attack_map.live_window_minutes', 30));
-        $mapWindowStart = now()->subMinutes($liveMinutes);
+        $displayDays = max(1, (int) config('attack_map.display_days', 7));
+        // Arcs / classements = historique affichable (défaut 7j)
+        // KPIs du bandeau carte alignés sur la même fenêtre d’affichage
+        $mapWindowStart = now()->subDays($displayDays);
 
-        // KPIs + arcs : même fenêtre live (ex. 30 min) — pas d’historique 7j
         $todayAlertsQuery = SecurityAlert::query()
             ->where(function ($q) use ($mapWindowStart) {
                 $q->where('last_seen', '>=', $mapWindowStart)
@@ -464,6 +466,7 @@ class MonitorController extends Controller
         return [
             'home' => $home,
             'liveWindowMinutes' => $liveMinutes,
+            'displayDays' => $displayDays,
             'mapSize' => ['w' => $mapW, 'h' => $mapH],
             'homeXY' => ['x' => $hx, 'y' => $hy],
             'eventsToday' => $eventsToday,

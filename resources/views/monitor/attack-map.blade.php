@@ -414,6 +414,7 @@
         return mb_chr(0x1F1E6 - 65 + ord($code[0]), 'UTF-8').mb_chr(0x1F1E6 - 65 + ord($code[1]), 'UTF-8');
     };
     $liveMins = (int) ($liveWindowMinutes ?? 30);
+    $displayDays = (int) ($displayDays ?? 7);
     $buckets = $categoryBuckets ?? [];
 @endphp
 
@@ -494,7 +495,7 @@
         <div class="rtm-brand">
             <h1 class="rtm-brand__title">Live Threat Map</h1>
             <div class="rtm-brand__sub">KORASHIELD · cible {{ $home['label'] ?? 'SOC' }}</div>
-            <div class="rtm-live"><i></i> Live · fenêtre {{ $liveMins }} min · <span id="rtm-clock">{{ now()->format('H:i:s') }}</span></div>
+            <div class="rtm-live"><i></i> Carte · {{ $displayDays }} j · <span id="rtm-clock">{{ now()->format('H:i:s') }}</span></div>
         </div>
         <div class="rtm-kpis">
             <div class="rtm-kpi">
@@ -564,7 +565,7 @@
 
         <div class="rtm-feed">
             @if($recentRows->isEmpty())
-                <p class="rtm-empty" style="padding:12px 16px;margin:0;">Aucun événement dans les {{ $liveMins }} dernières minutes.</p>
+                <p class="rtm-empty" style="padding:12px 16px;margin:0;">Aucun événement sur {{ $displayDays }} jours (avec IP source).</p>
             @else
                 <table>
                     <thead>
@@ -609,7 +610,7 @@
     tick();
     setInterval(tick, 1000);
 
-    // Auto-refresh fenêtre live
+    // Auto-refresh (fenêtre live SOC)
     var mins = {{ max(1, (int) ($liveWindowMinutes ?? 30)) }};
     setTimeout(function () { window.location.reload(); }, mins * 60 * 1000);
 })();
