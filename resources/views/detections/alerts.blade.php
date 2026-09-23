@@ -44,6 +44,12 @@
     <!-- Filters -->
     <div class="filters-bar">
         <form method="GET" class="filters-form">
+            <select name="range" class="filter-select" onchange="this.form.submit()">
+                <option value="1" @selected(($range ?? '30') === '1')>24 dernières heures</option>
+                <option value="7" @selected(($range ?? '30') === '7')>7 derniers jours</option>
+                <option value="30" @selected(($range ?? '30') === '30')>30 derniers jours</option>
+                <option value="all" @selected(($range ?? '30') === 'all')>Tout l’historique</option>
+            </select>
             <select name="status" class="filter-select" onchange="this.form.submit()">
                 <option value="">All Status</option>
                 @foreach($statuses as $key => $status)
@@ -70,7 +76,7 @@
             </select>
             <input type="hidden" name="target_ip" value="{{ request('target_ip') }}">
             <input type="hidden" name="affected" value="{{ request('affected') }}">
-            @if(request()->hasAny(['status', 'severity', 'category', 'target_ip', 'affected']))
+            @if(request()->hasAny(['status', 'severity', 'category', 'target_ip', 'affected']) || (($range ?? '30') !== '30'))
                 <a href="{{ route('detection.alerts') }}" class="btn btn-secondary btn-sm">Clear Filters</a>
             @endif
         </form>
@@ -133,8 +139,9 @@
                     </td>
                     <td>
                         <div class="time-info">
-                            <span class="time-ago">{{ $alert->created_at->diffForHumans() }}</span>
-                            <span class="time-exact">{{ $alert->created_at->format('M d, H:i') }}</span>
+                            @php $when = $alert->last_seen ?? $alert->created_at; @endphp
+                            <span class="time-ago">{{ $when?->diffForHumans() }}</span>
+                            <span class="time-exact">{{ $when?->format('d/m/Y H:i') }}</span>
                         </div>
                     </td>
                     <td>

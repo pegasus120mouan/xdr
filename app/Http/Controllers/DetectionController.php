@@ -69,9 +69,28 @@ class DetectionController extends Controller
     public function alerts(Request $request)
     {
         $user = $request->user();
+        $range = (string) $request->get('range', '30');
         $query = SecurityAlert::with('rule')
-            ->orderBy('created_at', 'desc');
+            ->orderByDesc('last_seen')
+            ->orderByDesc('created_at');
         TenantContext::scopeAlerts($query, $user);
+
+        $rangeDays = match ($range) {
+            '1' => 1,
+            '7' => 7,
+            '30' => 30,
+            'all' => null,
+            default => 30,
+        };
+        if ($rangeDays !== null) {
+            $from = now()->subDays($rangeDays);
+            $query->where(function ($q) use ($from) {
+                $q->where('last_seen', '>=', $from)
+                    ->orWhere(function ($q2) use ($from) {
+                        $q2->whereNull('last_seen')->where('created_at', '>=', $from);
+                    });
+            });
+        }
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -93,7 +112,7 @@ class DetectionController extends Controller
             $query->where('affected_asset', 'like', '%'.$request->affected.'%');
         }
 
-        $alerts = $query->paginate(20);
+        $alerts = $query->paginate(20)->withQueryString();
         $statuses = SecurityAlert::getStatuses();
         $severities = DetectionRule::getSeverities();
         $categories = DetectionRule::getCategories();
@@ -110,7 +129,7 @@ class DetectionController extends Controller
                 ->count(),
         ];
 
-        return view('detections.alerts', compact('alerts', 'statuses', 'severities', 'categories', 'stats'));
+        return view('detections.alerts', compact('alerts', 'statuses', 'severities', 'categories', 'stats', 'range'));
     }
 
     /**
