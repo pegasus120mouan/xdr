@@ -495,7 +495,7 @@
         <div class="rtm-brand">
             <h1 class="rtm-brand__title">Live Threat Map</h1>
             <div class="rtm-brand__sub">KORASHIELD · cible {{ $home['label'] ?? 'SOC' }}</div>
-            <div class="rtm-live"><i></i> Carte · {{ $displayDays }} j · <span id="rtm-clock">{{ now()->format('H:i:s') }}</span></div>
+            <div class="rtm-live"><i></i> Carte · {{ $displayDays }} j · maj. auto 60s · <span id="rtm-clock">{{ now()->format('H:i:s') }}</span></div>
         </div>
         <div class="rtm-kpis">
             <div class="rtm-kpi">
@@ -579,9 +579,14 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($recentRows->take(8) as $row)
+                        @foreach($recentRows->take(12) as $row)
                             <tr>
-                                <td>{{ $row['time']?->format('H:i:s') ?? '—' }}</td>
+                                <td title="{{ $row['time']?->timezone(config('app.timezone'))->format('Y-m-d H:i:s') ?? '' }}">
+                                    {{ $row['time']?->format('H:i:s') ?? '—' }}
+                                    @if($row['time'])
+                                        <span style="color:#64748b;font-size:0.65rem;display:block;">{{ $row['time']->diffForHumans() }}</span>
+                                    @endif
+                                </td>
                                 <td>{{ $flagEmoji($row['geo_code']) }} {{ $row['geo_label'] }}</td>
                                 <td>{{ $row['source_ip'] }}</td>
                                 <td>{{ $row['target_ip'] }}</td>
@@ -610,9 +615,8 @@
     tick();
     setInterval(tick, 1000);
 
-    // Auto-refresh (fenêtre live SOC)
-    var mins = {{ max(1, (int) ($liveWindowMinutes ?? 30)) }};
-    setTimeout(function () { window.location.reload(); }, mins * 60 * 1000);
+    // Rafraîchir la carte toutes les 60s pour suivre les nouvelles alertes
+    setTimeout(function () { window.location.reload(); }, 60 * 1000);
 })();
 
 (function () {
